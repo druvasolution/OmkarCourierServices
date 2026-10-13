@@ -1,0 +1,18 @@
+{
+  "name": "omkar-courier-services",
+  "version": "5.0.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^5.1.0",
+    "playwright-core": "^1.55.0"
+  },
+  "description": "OMKAR COURIER SERVICES - Trackon tracking portal",
+  "engines": {
+    "node": ">=18"
+  }
+}
