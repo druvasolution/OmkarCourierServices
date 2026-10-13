@@ -1,0 +1,192 @@
+/* FINAL DESIGN MATCH — Approved Omkar Courier Services White/Blue Truck Theme */
+:root{--navy:#06346d;--navy2:#0755a5;--orange:#ff7900;--orange2:#ff9c2c;--ink:#0b2d5d;--muted:#5b7598;--line:#d9e7f7;--pale:#eef6ff}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:#f5f9ff;font-family:Inter,"Segoe UI",Arial,sans-serif}
+header{height:101px;display:flex;align-items:center;gap:28px;padding:8px clamp(22px,5.5vw,92px);background:rgba(255,255,255,.98);border-bottom:1px solid #dce9f8;box-shadow:0 3px 14px #07366f0b;position:relative;z-index:10}
+.brand{display:flex;align-items:center;gap:0;min-width:390px;text-decoration:none;flex:0 0 auto}.brand-name-only:before{content:none!important}.brand-mark{display:block;width:375px;max-width:100%;height:auto;max-height:86px;object-fit:contain;object-position:left center}.brand span{display:none}
+.main-nav{display:flex;align-items:center;justify-content:center;gap:clamp(10px,1.6vw,27px);margin-left:auto;white-space:nowrap}.main-nav a{color:#153b68;text-decoration:none;font-size:13px;font-weight:750;padding:13px 10px;border-radius:10px;display:inline-flex;align-items:center;gap:7px}.main-nav a:before{font-size:15px;color:#092f60;font-weight:900}.main-nav a:nth-child(1):before{content:'⌂';font-size:21px}.main-nav a:nth-child(2):before{content:'⌕';font-size:22px}.main-nav a:nth-child(3):before{content:'◇';font-size:18px}.main-nav a:nth-child(4):before{content:'♢';font-size:18px}.main-nav a:nth-child(5):before{content:'☎';font-size:15px}.main-nav a:hover,.main-nav a:focus{background:#e6f2ff;color:#075eb8}
+header .nav-cta{background:linear-gradient(135deg,var(--orange),var(--orange2));color:#fff;border:0;border-radius:12px;padding:16px 24px;white-space:nowrap;font-size:15px;font-weight:900;text-decoration:none;box-shadow:0 8px 18px #ff79002b;flex:0 0 auto}header .nav-cta span{font-size:18px;margin-left:7px}header .nav-cta:hover{background:#075eb8;color:#fff}
+.hero{position:relative;isolation:isolate;overflow:hidden;text-align:center;padding:47px 22px 24px;min-height:548px;background:linear-gradient(90deg,rgba(255,255,255,.12),rgba(255,255,255,.26) 43%,rgba(255,255,255,.10)),url('logistics-hero.png') center 50%/cover no-repeat,#e9f4ff;color:var(--ink)}.hero:before{content:'';position:absolute;z-index:-1;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.02) 60%,rgba(255,255,255,.32));pointer-events:none}
+.tracking-intro{margin:0 auto;max-width:1100px;position:relative;z-index:1}.intro-kicker{display:none}.hero h1{font-size:clamp(34px,3.45vw,54px);line-height:1.1;letter-spacing:-1.25px;margin:8px auto 8px;color:#061d4a;font-weight:950;text-shadow:0 2px 8px #fff8}.hero h1 em{font-style:normal;color:#f07813}.hero p{font-size:clamp(16px,1.55vw,22px);margin:0;color:#102d5c;font-weight:500}
+.courier-logos{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:9px;max-width:1210px;margin:40px auto 28px;position:relative;z-index:2}.courier-logo{min-width:0;min-height:80px;padding:12px 7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border:1px solid #d7e4f4;border-radius:13px;background:rgba(255,255,255,.97);box-shadow:0 7px 18px #0b38651a;cursor:pointer;transition:transform .18s,border-color .18s,box-shadow .18s}.courier-logo:hover{transform:translateY(-2px);border-color:#9cc8f3;box-shadow:0 12px 23px #0b38651d}.courier-logo.selected{border:2px solid var(--orange);background:#fff;box-shadow:0 9px 23px #ff790027}.courier-logo img{display:block!important;width:100%;max-width:155px;height:48px;object-fit:contain}.courier-logo b{font-size:clamp(12px,1.05vw,17px);font-weight:950;line-height:1;letter-spacing:-.3px}.courier-logo small{display:none!important}.dtdc-logo img{max-width:160px}.india-logo img{max-width:150px}.trackon-logo img{max-width:165px}.dhl-logo img{max-width:155px}.courier-logo b{font-size:clamp(12px,1.05vw,17px);font-weight:950;line-height:1;letter-spacing:-.3px}.courier-logo small{font-size:8px;letter-spacing:.9px;color:#7186a1;font-weight:850}.trackon-logo b{color:#df252d}.india-logo b{color:#d34426}.dtdc-logo b{color:#d5222c;font-style:italic;font-size:21px}.blue-logo b{color:#0875c9}.delhivery-logo b{color:#24344a}.movin-logo b{color:#159bd7;font-style:italic;font-size:20px}.tej-logo b{color:#df3c36;font-size:20px}
+.tracking-panel{position:relative;z-index:3;max-width:1018px;margin:0 auto;padding:11px 25px 17px;background:rgba(255,255,255,.97);border:1px solid #dce9f8;border-radius:22px;box-shadow:0 12px 28px #164a7924}.type-switch{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:9px;margin:0 auto 7px}.tracking-mode-switch{margin-top:0;margin-bottom:12px}.type-switch label{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border:1px solid #c9ddf5;border-radius:10px;background:#fff;color:#153b68;font-size:12px;font-weight:800;box-shadow:0 3px 10px #07366f0b;cursor:pointer}.type-switch label:has(input:checked){background:#eaf4ff;border-color:#8fc3f7;color:#064f9e;box-shadow:0 5px 15px #0b56a414}.type-switch input,.mode-box input{accent-color:var(--orange)}
+.track{display:flex;align-items:center;gap:11px;max-width:100%;margin:0 auto 8px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}.track input{flex:1;min-width:0;padding:17px 18px;border:1.5px solid #d1e1f3;border-radius:11px;background:#fff;font-size:15px;color:#143c69;outline:none}.track input:focus{border-color:#4396ed;box-shadow:0 0 0 3px #4396ed22}.track button,button{border:0;border-radius:11px;background:linear-gradient(135deg,var(--orange),var(--orange2));color:#fff;font-weight:900;cursor:pointer;box-shadow:0 7px 16px #ff790027;transition:transform .15s,background .15s}.track button{min-width:190px;padding:17px 18px;font-size:14px}.track button:hover,button:hover{transform:translateY(-1px)}.secondary{background:linear-gradient(135deg,#0a4d91,#082f63)!important;box-shadow:none!important}.mode-box{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:22px;margin:10px auto 0;color:#234b79;font-size:12px}.mode-box label{display:inline-flex;align-items:center;gap:7px}.mode-box#indiaPostNote{max-width:950px;padding:10px 14px;background:#f1f7ff;border:1px solid #d5e6f8;border-radius:9px;line-height:1.5}.multi-box{max-width:100%;margin:0 auto;padding:15px;border:1px solid #d5e6f8;border-radius:13px;background:#fff;box-shadow:none;text-align:left}.multi-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.multi-title b{font-size:14px;color:#103e70}.multi-title small{font-size:11px;color:#6b83a0}.multi-box textarea{display:block;width:100%;padding:12px;border:1px solid #d4e3f4;border-radius:10px;font:13px/1.6 Segoe UI,Arial,sans-serif;color:#123b68;resize:vertical}.multi-box button{width:100%;margin-top:9px;padding:12px}#msg{max-width:1000px;margin:7px auto 0;padding:2px 8px;color:#174d82;font-size:12px;font-weight:800;line-height:1.5;border-radius:8px}.public-note{max-width:1000px;margin:5px auto 0;color:#4d6f94;font-size:9px;line-height:1.45}.hidden{display:none!important}
+.features{max-width:1480px;margin:0 auto;padding:17px clamp(22px,5.5vw,92px) 24px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;background:linear-gradient(180deg,#fff,#f5f9ff)}.features article{display:flex;align-items:center;gap:16px;padding:14px 20px;border-right:1px solid #cfdef0;background:transparent}.features article:last-child{border-right:0}.feature-icon{width:72px;height:72px;flex:0 0 72px;display:grid;place-items:center;border-radius:50%;background:#fff0df;color:#f07813;font-size:31px;font-weight:900}.features article:nth-child(2) .feature-icon{background:#dff0ff;color:#0874d1}.features article:nth-child(3) .feature-icon{background:#def8f1;color:#009b8e}.features article:nth-child(4) .feature-icon{background:#e9e7ff;color:#6350d9}.features article div{display:flex;flex-direction:column;gap:5px;text-align:left}.features article b{font-size:16px;color:#10376a}.features article small{font-size:14px;color:#6681a2}
+footer{position:relative;display:grid;grid-template-columns:1.55fr 1fr 1fr 1fr;align-items:start;gap:25px;padding:36px clamp(25px,5.5vw,92px) 24px;background:linear-gradient(125deg,#062653,#0759a8);color:#dcecff;border-top:7px solid #b7dcff;text-align:left;font-size:13px;overflow:hidden}footer:before{content:'';position:absolute;left:-4%;right:-4%;top:-28px;height:48px;border-radius:50%;background:#f5f9ff}footer .footer-brand{display:flex;flex-direction:column;align-items:flex-start;gap:10px;position:relative;z-index:1}footer .footer-brand img{width:310px;max-width:100%;filter:brightness(0) invert(1)}footer .footer-brand p{margin:0;color:#e2efff;font-size:12px}footer .footer-links{display:flex;flex-direction:column;gap:8px;position:relative;z-index:1}footer .footer-links b,footer .follow b{font-size:14px;color:#fff;margin-bottom:2px}footer .footer-links a{color:#dcecff;text-decoration:none;font-size:12px}footer .footer-links a:before{content:'•';margin-right:9px;color:#fff}footer .footer-links a:hover{color:#ffb35e}footer .follow{display:flex;flex-direction:column;gap:12px;position:relative;z-index:1}footer .socials{display:flex;gap:12px}footer .socials a{display:grid;place-items:center;width:37px;height:37px;border-radius:9px;background:#0872d6;color:#fff;font-weight:900;text-decoration:none;font-size:17px}footer .socials a:nth-child(2){background:#db428f}footer .socials a:nth-child(3){background:#1586bd}footer .socials a:nth-child(4){background:#e22b32}footer .footer-bottom{grid-column:1/-1;text-align:center;padding-top:5px;font-size:13px;color:#e0edff}footer .footer-bottom small{display:block;margin-top:9px;color:#bad0e9;font-size:12px}footer .footer-bottom a{display:inline-block;margin-top:7px;color:#ffad51;text-decoration:none;font-weight:900;font-size:12px}
+.card{max-width:1240px;margin:18px auto;padding:20px;background:#fff;border:1px solid #d9e7f6;border-radius:15px;box-shadow:0 10px 28px #07366f10}.result-actions{display:flex;justify-content:flex-end;margin-bottom:12px}.print-btn{padding:10px 15px;font-size:11px}.head{display:flex;align-items:center;justify-content:space-between;gap:12px}.courier-badge{display:inline-block;background:#eaf4ff;color:#0a4c8f;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:900}.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:15px 0}.summary-grid>div{padding:12px;border:1px solid #e2edf9;border-radius:9px;background:#f8fbff}.summary-grid small{display:block;color:#6983a1;font-size:10px;margin-bottom:5px}.summary-grid b{font-size:13px;color:#183d66;overflow-wrap:anywhere}.card h3{margin:12px 0 10px;color:#103b6b;font-size:16px}.table-wrap{width:100%;overflow:auto;border:1px solid #dce8f6;border-radius:10px}table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:11px 12px;border-bottom:1px solid #e5eef8;text-align:left;font-size:12px;vertical-align:top}th{background:#edf5ff;color:#234b77;white-space:nowrap}tr:last-child td{border-bottom:0}.event-desc{margin-top:4px;color:#6b83a0;font-size:11px}.multi-table a{color:#b95100;font-weight:800}.error-mini{margin-top:4px;color:#b42318;font-size:11px}
+@media(max-width:1150px){header{gap:14px;padding-left:22px;padding-right:22px}.brand{min-width:300px;width:300px}.brand-mark{width:300px}.main-nav{gap:7px}.main-nav a{font-size:12px;padding:10px 5px}.courier-logos{grid-template-columns:repeat(4,minmax(0,1fr));max-width:850px;margin-top:28px}.hero{min-height:0}.tracking-panel{max-width:900px}.features article{padding:12px 10px;gap:10px}.feature-icon{width:52px;height:52px;flex-basis:52px;font-size:24px}.features article b{font-size:13px}.features article small{font-size:11px}}
+@media(max-width:760px){header{height:auto;min-height:72px;padding:9px 13px;gap:8px;flex-wrap:wrap}.brand{min-width:0;width:calc(100% - 125px);gap:0}.brand-mark{width:100%;max-width:330px;max-height:66px}.main-nav{order:3;width:100%;justify-content:space-between;gap:3px;padding-top:6px;border-top:1px solid #edf3fa}.main-nav a{font-size:10px;padding:7px 3px;gap:3px}.main-nav a:before{display:none}.main-nav a:hover{padding-left:3px;padding-right:3px}header .nav-cta{margin-left:auto;padding:11px 12px;font-size:11px}.hero{padding:27px 12px 22px;min-height:0;background-position:center center;background-size:cover}.hero h1{font-size:29px;letter-spacing:-.7px}.hero p{font-size:13px}.courier-logos{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:20px auto 16px}.courier-logo{min-height:61px;padding:10px 5px}.courier-logo b{font-size:14px}.tracking-panel{padding:12px 10px 14px;border-radius:15px}.type-switch{gap:6px}.type-switch label{padding:9px 10px;font-size:11px}.track{flex-direction:column;padding:0}.track input{width:100%;padding:14px 12px}.track button{width:100%;min-width:0;padding:13px}.mode-box{gap:7px;padding-left:4px;flex-direction:row}.multi-title{align-items:flex-start;flex-direction:column}.features{grid-template-columns:repeat(2,minmax(0,1fr));gap:0;padding:12px 8px 16px}.features article{padding:11px 6px;gap:7px;border-right:0;border-bottom:1px solid #cfdef0}.features article:nth-child(odd){border-right:1px solid #cfdef0}.features article:nth-last-child(-n+2){border-bottom:0}.feature-icon{width:36px;height:36px;flex-basis:36px;font-size:20px}.features article b{font-size:11px}.features article small{font-size:10px}footer{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;padding:30px 18px 20px}footer .footer-brand{grid-column:1/-1}footer .footer-brand img{width:260px}footer .footer-bottom{font-size:11px}.card{margin:12px 8px;padding:12px}.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print{header,.hero,.features,footer,.result-actions,#multiResult{display:none!important}.card{box-shadow:none;margin:0;max-width:none}.table-wrap{overflow:visible;border:0}table{min-width:0;font-size:11px}}
+
+
+
+/* FINAL REQUESTED ADJUSTMENTS: Domestic/International, branded truck, no feature strip */
+.shipping-types{
+  display:flex;align-items:center;justify-content:center;gap:13px;
+  flex:0 0 auto;white-space:nowrap;margin-left:2px
+}
+.shipping-types a{
+  display:inline-flex;align-items:center;gap:7px;text-decoration:none;
+  color:#07366f;font-weight:900;text-transform:uppercase;
+  font-size:clamp(10px,.85vw,13px);letter-spacing:.25px
+}
+.shipping-types a:hover{color:#f07813}
+.shipping-symbol{font-size:21px;line-height:1;color:#0755a5}
+.shipping-divider{width:1px;height:28px;background:#d1e2f5}
+.hero:after{
+  content:"";position:absolute;z-index:1;left:2.1%;top:42%;
+  width:clamp(125px,13.5vw,205px);height:52px;
+  background:rgba(255,255,255,.91) url("omkar-logo.svg") center/contain no-repeat;
+  border:1px solid rgba(255,255,255,.75);border-radius:7px;
+  box-shadow:0 3px 12px rgba(3,30,68,.14);pointer-events:none
+}
+.courier-logos,.tracking-panel,.tracking-intro{position:relative;z-index:2}
+.features{display:none!important}
+footer .footer-links#services{scroll-margin-top:110px}
+@media(max-width:1250px){
+  header{gap:16px;padding-left:22px;padding-right:22px}
+  .brand{min-width:275px;width:275px}
+  .brand-mark{width:275px}
+  .shipping-types{gap:8px}
+  .shipping-types a{font-size:10px}
+  .shipping-symbol{font-size:17px}
+  .main-nav{gap:4px}
+  .main-nav a{font-size:11px;padding:10px 5px}
+}
+@media(max-width:920px){
+  header{height:auto;min-height:82px;flex-wrap:wrap;gap:8px;padding:10px 16px}
+  .brand{min-width:0;width:clamp(220px,34vw,310px)}
+  .brand-mark{width:100%;max-height:65px}
+  .shipping-types{margin-left:auto}
+  .main-nav{order:4;width:100%;justify-content:center;gap:12px;margin-left:0}
+  header .nav-cta{margin-left:auto}
+  .hero:after{left:2%;top:43%;width:130px;height:36px}
+}
+@media(max-width:560px){
+  .shipping-types{width:100%;order:3;justify-content:center;padding:5px 0}
+  .main-nav{order:4;gap:4px}
+  .main-nav a{font-size:10px;padding:8px 4px}
+  .hero:after{left:2%;top:31%;width:105px;height:30px}
+}
+
+
+
+/* FINAL COMPACT FOOTER + LARGER OMKAR TRUCK BRANDING */
+footer.compact-footer{
+  display:block!important;position:relative;min-height:0!important;
+  padding:17px 12px 16px!important;margin:0!important;
+  background:linear-gradient(105deg,#06346c,#0756a4)!important;
+  color:#eaf4ff!important;border-top:4px solid #79c5ff!important;
+  text-align:center!important;overflow:hidden!important;
+}
+footer.compact-footer:before{display:none!important;content:none!important}
+footer.compact-footer .footer-bottom{
+  display:block!important;grid-column:auto!important;margin:0!important;
+  padding:0!important;text-align:center!important;color:#eaf4ff!important;
+  font-size:13px!important;line-height:1.5!important;
+}
+footer.compact-footer .footer-bottom small{display:inline!important;margin:0!important}
+footer.compact-footer .footer-bottom a{
+  display:inline!important;margin:0!important;padding:0!important;
+  color:#ff8a00!important;font-weight:900!important;font-size:13px!important;
+  text-decoration:none!important;
+}
+/* Larger branded logo placed over the truck trailer area. */
+.hero:after{
+  content:""!important;position:absolute!important;z-index:1!important;
+  left:2.1%!important;top:43%!important;
+  width:clamp(230px,25vw,390px)!important;
+  height:clamp(66px,7vw,108px)!important;
+  background:rgba(255,255,255,.94) url("omkar-logo.svg") center/contain no-repeat!important;
+  border:1px solid rgba(255,255,255,.88)!important;border-radius:10px!important;
+  box-shadow:0 5px 18px rgba(3,30,68,.22)!important;pointer-events:none!important;
+}
+.courier-logos,.tracking-panel,.tracking-intro{position:relative;z-index:2}
+@media(max-width:920px){
+  .hero:after{left:2%!important;top:43%!important;width:clamp(170px,32vw,260px)!important;height:clamp(48px,8vw,72px)!important}
+  footer.compact-footer{padding:14px 9px!important}
+  footer.compact-footer .footer-bottom{font-size:11px!important}
+  footer.compact-footer .footer-bottom a{font-size:11px!important}
+}
+@media(max-width:560px){
+  .hero:after{left:2%!important;top:32%!important;width:145px!important;height:42px!important}
+  footer.compact-footer .footer-bottom{font-size:10px!important}
+  footer.compact-footer .footer-bottom a{font-size:10px!important}
+}
+
+
+/* FINAL APPROVED FINISH: logo is branded directly onto the truck trailer image */
+.hero:after{content:none!important;display:none!important;background:none!important;border:0!important;box-shadow:none!important}
+footer.compact-footer{display:block!important;position:relative!important;margin-top:0!important;width:100%!important}
+body{min-height:100vh;display:flex;flex-direction:column}
+header{flex:0 0 auto}
+.hero{flex:0 0 auto}
+#result,#multiResult{flex:0 0 auto}
+footer.compact-footer{margin-top:auto!important}
+
+
+/* Multi-page Home / Services / Contact styling */
+.inner-page{min-height:100vh;background:#f3f8ff}
+.site-header{height:auto;min-height:100px}
+.inner-main{max-width:1240px;margin:0 auto;padding:34px 24px 48px}
+.inner-hero{text-align:center;padding:34px 20px 40px;border-radius:22px;background:linear-gradient(110deg,rgba(235,246,255,.97),rgba(255,255,255,.92)),url('logistics-hero.png') center 45%/cover;box-shadow:0 10px 28px rgba(5,53,105,.08);margin-bottom:28px}
+.inner-hero .intro-kicker{display:inline-block;border:1px solid #d3e6ff;border-radius:20px;background:#fff;padding:7px 14px;color:#f07813;font-size:11px;font-weight:900;letter-spacing:1.7px}
+.inner-hero h1{margin:14px 0 8px;font-size:clamp(32px,4vw,48px);line-height:1.12;color:#092e62;font-weight:900}
+.inner-hero h1 em{font-style:normal;color:#f07813}.inner-hero p{margin:0;color:#536d91;font-size:16px}
+.service-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.service-card{display:flex;align-items:flex-start;gap:16px;padding:23px 20px;min-height:145px;background:#fff;border:1px solid #d8e7f8;border-radius:15px;box-shadow:0 6px 18px rgba(8,56,108,.05);scroll-margin-top:120px}
+.service-icon{width:54px;height:54px;flex:0 0 54px;display:grid;place-items:center;background:#eaf4ff;border-radius:14px;font-size:27px}
+.service-card h2{margin:2px 0 8px;font-size:17px;color:#08376f}.service-card p{margin:0;color:#617895;font-size:14px;line-height:1.6}
+.text-link{display:inline-block;margin-top:9px;color:#0755a5;font-size:13px;font-weight:800;text-decoration:none}.text-link:hover{text-decoration:underline;color:#f07813}
+.inner-cta{margin-top:25px;padding:25px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#e8f3ff;border:1px solid #d4e6fb;border-radius:16px}.inner-cta h2{margin:0;color:#08376f;font-size:20px}.inner-cta p{margin:0;color:#607897;flex:1}.inner-cta .nav-cta{margin-left:auto;text-decoration:none}
+.contact-layout{display:grid;grid-template-columns:.9fr 1.1fr;gap:22px;align-items:stretch}
+.panel{background:#fff;border:1px solid #d8e7f8;border-radius:18px;padding:28px;box-shadow:0 8px 24px rgba(5,53,105,.06)}
+.panel h2{margin:0 0 7px;color:#08376f;font-size:24px}.panel-intro{margin:0 0 24px;color:#647c9a;font-size:14px}
+.contact-detail{display:flex;gap:15px;padding:17px 0;border-bottom:1px solid #e5eef8}.contact-detail:last-child{border-bottom:0;padding-bottom:0}.detail-icon{flex:0 0 43px;width:43px;height:43px;display:grid;place-items:center;border-radius:13px;background:#eaf4ff;color:#0755a5;font-size:25px;font-weight:900}.contact-detail h3{margin:0 0 7px;color:#08376f;font-size:16px}.contact-detail p{margin:0;color:#4e6787;font-size:14px;line-height:1.7}.contact-detail p a{color:#0755a5;text-decoration:none;font-weight:700}.contact-detail p a:hover{text-decoration:underline}
+.contact-message form{display:grid;grid-template-columns:1fr;gap:8px}.contact-message label{font-size:13px;color:#173f70;font-weight:800;margin-top:5px}.contact-message input,.contact-message textarea{width:100%;border:1px solid #cbdcf0;border-radius:9px;padding:12px 13px;font:inherit;font-size:14px;color:#153b68;background:#fcfdff;outline:none}.contact-message input:focus,.contact-message textarea:focus{border-color:#4d9bff;box-shadow:0 0 0 3px #dceeff}.contact-message textarea{resize:vertical;min-height:110px}.message-button{border:0;border-radius:10px;padding:14px 18px;margin-top:8px;color:#fff;background:linear-gradient(135deg,#ff7900,#ff9c2c);font-size:14px;font-weight:900;cursor:pointer}.message-button:hover{filter:brightness(.97)}.form-note{font-size:11px;color:#7186a0;margin:3px 0 0}
+@media(max-width:900px){.site-header{flex-wrap:wrap;padding:12px 18px;gap:12px}.service-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.contact-layout{grid-template-columns:1fr}.inner-main{padding:22px 16px 34px}}
+@media(max-width:560px){.service-grid{grid-template-columns:1fr}.service-card{min-height:0}.inner-hero{padding:28px 15px}.inner-cta{align-items:flex-start;flex-direction:column}.inner-cta .nav-cta{margin-left:0}.panel{padding:21px}.shipping-types{order:3;width:100%;justify-content:center}.main-nav{order:4;width:100%;flex-wrap:wrap}}
+
+/* Final courier logo selector and compact tracking controls */
+.courier-logos{margin:30px auto 14px;gap:10px;max-width:1250px}
+.courier-logo{min-height:82px;padding:8px 10px;background:rgba(255,255,255,.96)}
+.courier-logo img{display:block!important;width:100%;height:48px;max-width:165px;object-fit:contain}
+.courier-logo b{font-size:clamp(13px,1.1vw,18px);font-weight:950;letter-spacing:-.2px}
+.courier-logo small{display:none!important}
+.dhl-logo{background:#fff}
+.delhivery-logo b{color:#111;font-weight:950;letter-spacing:.1px}
+.movin-logo b{color:#0787d5;font-style:italic;font-size:21px}
+.tej-logo b{color:#df252d;font-size:22px;font-style:italic}
+.tracking-panel{max-width:1240px;padding:12px 20px 14px;border-radius:18px;background:rgba(255,255,255,.94)}
+#trackTypeBox.type-switch,#trackingModeBox.type-switch{display:inline-flex;vertical-align:middle;margin:0 5px 10px;gap:8px}
+.tracking-panel{text-align:center}
+.type-switch label{padding:9px 14px}
+.track{margin-top:0}
+@media(max-width:760px){.courier-logos{grid-template-columns:repeat(2,minmax(0,1fr));margin:18px auto 12px}.courier-logo{min-height:62px}.courier-logo img{height:39px;max-width:145px}#trackTypeBox.type-switch,#trackingModeBox.type-switch{margin:0 2px 9px;gap:5px}.type-switch label{padding:8px 9px;font-size:10px}}
+
+/* FINAL APPROVED LAYOUT: move courier buttons and tracker lower; remove blank white band */
+@media (min-width: 921px){
+  body{min-height:100vh;display:flex;flex-direction:column;background:#f3f8ff}
+  header{flex:0 0 auto}
+  .hero{
+    flex:1 0 auto;
+    min-height:calc(100vh - 145px)!important;
+    display:flex!important;
+    flex-direction:column!important;
+    padding:clamp(34px,6.2vh,68px) 22px 20px!important;
+    background-position:center center!important;
+  }
+  .tracking-intro{flex:0 0 auto;width:100%}
+  .courier-logos{margin-top:auto!important;margin-bottom:14px!important;width:100%;max-width:1210px!important;gap:9px!important}
+  .courier-logo{min-height:76px!important}
+  .tracking-panel{width:min(100%,1240px)!important;margin:0 auto!important;padding:12px 16px 14px!important;background:rgba(255,255,255,.92)!important}
+  #trackTypeBox.type-switch,#trackingModeBox.type-switch{display:inline-flex!important;vertical-align:middle!important;margin:0 4px 10px!important}
+  .track{display:flex!important;flex-direction:row!important;gap:11px!important;margin:0 auto 8px!important}
+  .track input{width:auto!important;flex:1 1 auto!important}
+  .track button{width:auto!important;min-width:190px!important}
+  footer.compact-footer{margin-top:0!important;flex:0 0 auto!important}
+}
+@media (max-width:920px){
+  .hero{min-height:0!important;display:block!important;padding:28px 12px 22px!important}
+  .courier-logos{margin:24px auto 14px!important}
+  .tracking-panel{margin:0 auto!important}
+}

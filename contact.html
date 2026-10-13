@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Contact Us | OMKAR COURIER SERVICES</title><link rel="stylesheet" href="style.css"></head><body class="inner-page">
+<header class="site-header">
+  <a class="brand" href="/" aria-label="Omkar Courier Services Home"><img class="brand-mark" src="omkar-logo.svg" alt="OMKAR COURIER SERVICES — Your Parcel. Our Priority."></a>
+  <div class="shipping-types"><a href="/services.html#domestic"><span class="shipping-symbol">◎</span> Domestic</a><span class="shipping-divider"></span><a href="/services.html#international"><span class="shipping-symbol">✈</span> International</a></div>
+  <nav class="main-nav"><a href="/">Home</a><a href="/#tracking">Track</a><a href="/#couriers">Couriers</a><a href="/services.html">Services</a><a href="/contact.html">Contact</a></nav>
+  <a class="nav-cta" href="/#tracking">Track Now <span>↗</span></a>
+</header>
+<main class="inner-main">
+<section class="inner-hero contact-hero"><span class="intro-kicker">WE ARE HERE TO HELP</span><h1>Contact <em>Us</em></h1><p>Get in touch with Omkar Courier Services for courier and shipment enquiries.</p></section>
+<section class="contact-layout">
+<div class="contact-info panel"><h2>Contact Information</h2><p class="panel-intro">We would be happy to hear from you.</p>
+<div class="contact-detail"><span class="detail-icon">⌖</span><div><h3>Our Address</h3><p>Prathana Shivraj Apartment,<br>Bhoir Aali, Chinchwad,<br>Pune - 411033, Maharashtra, India</p><a class="text-link" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&amp;query=Prathana+Shivraj+Apartment+Bhoir+Aali+Chinchwad+Pune+411033">View on Map →</a></div></div>
+<div class="contact-detail"><span class="detail-icon">☎</span><div><h3>Mobile Numbers</h3><p><a href="tel:9689944016">9689944016</a><br><a href="tel:8007061158">8007061158</a></p></div></div>
+<div class="contact-detail"><span class="detail-icon">◷</span><div><h3>Courier Enquiries</h3><p>Call us on the numbers above for service and shipment enquiries.</p></div></div>
+</div>
+<div class="contact-message panel"><h2>Send Us a Message</h2><p class="panel-intro">Fill in your details and open WhatsApp to send your enquiry.</p>
+<form id="contactForm"><label for="contactName">Your Name</label><input id="contactName" name="name" required placeholder="Enter your name"><label for="contactPhone">Mobile Number</label><input id="contactPhone" name="phone" inputmode="tel" required placeholder="Enter your mobile number"><label for="contactEmail">Email (optional)</label><input id="contactEmail" name="email" type="email" placeholder="Enter your email"><label for="contactMsg">Message</label><textarea id="contactMsg" name="message" rows="5" required placeholder="How can we help you?"></textarea><button type="submit" class="message-button">➤ &nbsp; Send Enquiry on WhatsApp</button><p class="form-note">Your message will open in WhatsApp; it is not sent automatically.</p></form>
+</div></section></main>
+<footer class="compact-footer"><div class="footer-bottom">© 2026 Omkar Courier Services. All rights reserved. &nbsp; | &nbsp; Multi Courier Tracking Portal &nbsp; | &nbsp; <a href="/admin.html">Admin</a></div></footer><script>
+document.getElementById('contactForm').addEventListener('submit',function(e){e.preventDefault();const name=document.getElementById('contactName').value.trim();const phone=document.getElementById('contactPhone').value.trim();const email=document.getElementById('contactEmail').value.trim();const message=document.getElementById('contactMsg').value.trim();const body=`Omkar Courier Services enquiry\nName: ${name}\nMobile: ${phone}\nEmail: ${email||'Not provided'}\nMessage: ${message}`;window.open('https://wa.me/919689944016?text='+encodeURIComponent(body),'_blank','noopener');});
+</script></body></html>

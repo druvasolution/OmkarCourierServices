@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OMKAR COURIER SERVICES - Trackon Admin</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><div class="brand"><b>OC</b><span><strong>OMKAR COURIER SERVICES</strong><small>Trackon Admin Panel</small></span></div><a href="/">Tracking</a></header>
+<main class="admin">
+<h1>Trackon Admin Panel</h1>
+<div class="warning">Trackon credentials are kept server-side. Do not put the User ID, Password or App Key in the public tracking page. The API endpoint must be the endpoint supplied by Trackon.</div>
+<section class="card">
+<h2>Trackon API Settings</h2>
+<div class="form">
+<label>API Enabled <input id="en" type="checkbox"></label>
+<label>Trackon API URL <input id="url" placeholder="Paste Trackon Tracking API endpoint"></label>
+<label>Authentication / Request Mode
+<select id="mode"><option value="JSON_BODY">JSON Body — UserID / Pass / AppKey / AWB</option><option value="QUERY">Query String — UserID / Pass / AppKey / AWB</option><option value="GET">GET — AWB + credentials as query parameters</option><option value="APPKEY_HEADER">Headers — UserID / Pass / AppKey</option><option value="BASIC_AUTH">HTTP Basic Auth + AppKey header</option></select></label>
+<label>User ID <input id="uid" autocomplete="off"></label>
+<label>Password <input id="pass" type="password" autocomplete="new-password" placeholder="Leave blank to keep saved password"></label>
+<label>App Key <input id="app" type="password" autocomplete="new-password" placeholder="Leave blank to keep saved App Key"></label>
+<div class="buttons"><button onclick="saveSettings()">SAVE TRACKON SETTINGS</button><button class="secondary" onclick="testApi()">TEST API WITH AWB</button></div>
+<p id="msg"></p>
+</div>
+</section>
+<section class="card"><h2>Test AWB</h2><div class="form"><input id="testAwb" placeholder="Enter a real Trackon AWB"><button onclick="testApi()">TEST TRACKING</button></div><p id="testMsg"></p></section>
+<section class="card"><h2>Local Shipment Entry</h2><div class="form"><input id="a" placeholder="AWB Number"><select id="s"><option>PENDING</option><option>PICKED UP</option><option>IN TRANSIT</option><option>OUT FOR DELIVERY</option><option>DELIVERED</option><option>EXCEPTION</option></select><input id="l" placeholder="Current Location"><input id="d" placeholder="Destination"><button onclick="saveShipment()">SAVE LOCAL SHIPMENT</button></div></section>
+<section class="card"><h2>Recent Shipments</h2><table><thead><tr><th>AWB</th><th>Status</th><th>Location</th><th>Updated</th></tr></thead><tbody id="rows"></tbody></table></section>
+</main><footer>© 2026 OMKAR COURIER SERVICES</footer>
+<script>
+const $=id=>document.getElementById(id);const v=id=>$(id).value;
+async function load(){const s=await(await fetch('/api/admin/settings')).json();$('en').checked=s.enabled;$('url').value=s.api_url||'';$('uid').value=s.user_id||'';$('mode').value=s.auth_mode||'JSON_BODY';
+ const r=await(await fetch('/api/admin/shipments')).json();$('rows').innerHTML=r.map(x=>`<tr><td>${esc(x.awb)}</td><td>${esc(x.status)}</td><td>${esc(x.location||'-')}</td><td>${x.last_updated?new Date(x.last_updated).toLocaleString():'-'}</td></tr>`).join('');}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+async function saveSettings(){const body={enabled:$('en').checked,api_url:v('url'),user_id:v('uid'),auth_mode:v('mode')};if($('pass').value)body.password=$('pass').value;if($('app').value)body.app_key=$('app').value;const r=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();$('msg').textContent=d.error||'Trackon settings saved.';$('pass').value='';$('app').value='';}
+async function testApi(){const a=v('testAwb');if(!a){$('testMsg').textContent='Enter an AWB first.';return;}$('testMsg').textContent='Testing...';const r=await fetch('/api/admin/test-trackon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({awb:a})});const d=await r.json();$('testMsg').textContent=d.ok?`SUCCESS: ${d.status} | ${d.location||'-'} | ${d.event_count} event(s)`:(d.message||d.error||'Test failed');}
+async function saveShipment(){const body={awb:v('a'),status:v('s'),location:v('l'),destination:v('d')};const r=await fetch('/api/admin/shipments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();$('msg').textContent=d.error||'Local shipment saved.';load();}
+load();
+</script></body></html>
