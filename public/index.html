@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OMKAR COURIER SERVICES | Multi Courier Tracking</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="home">
+  <a class="brand brand-name-only" href="#home" aria-label="Omkar Courier Services Home"><img class="brand-mark" src="omkar-logo.svg" alt="OMKAR COURIER SERVICES — Your Parcel. Our Priority."></a>
+  <div class="shipping-types" aria-label="Shipping services">
+    <a href="/services.html#domestic"><span class="shipping-symbol">◎</span> Domestic</a>
+    <span class="shipping-divider" aria-hidden="true"></span>
+    <a href="/services.html#international"><span class="shipping-symbol">✈</span> International</a>
+  </div>
+  <nav class="main-nav"><a href="/">Home</a><a href="#tracking">Track</a><a href="#couriers">Couriers</a><a href="/services.html">Services</a><a href="/contact.html">Contact</a></nav>
+  <a class="nav-cta" href="#tracking">Track Now <span>↗</span></a>
+</header>
+
+
+<section class="hero" id="tracking">
+  <div class="tracking-intro">
+    <span class="intro-kicker">FAST  •  SAFE  •  RELIABLE</span>
+    <h1>Track Across <em>Multiple</em> Couriers</h1>
+    <p>Your shipments, all in one place.</p>
+  </div>
+
+  <div class="courier-logos" id="couriers" role="radiogroup" aria-label="Select courier">
+    <button type="button" class="courier-logo trackon-logo selected" data-courier="TRACKON" role="radio" aria-checked="true" aria-label="Trackon"><img src="trackon-logo.jpg" alt="Trackon"></button>
+    <button type="button" class="courier-logo india-logo" data-courier="INDIA_POST" role="radio" aria-checked="false" aria-label="India Post"><img src="india-post-logo.png" alt="India Post"></button>
+    <button type="button" class="courier-logo dtdc-logo" data-courier="DTDC" role="radio" aria-checked="false" aria-label="DTDC"><img src="dtdc-logo.png" alt="DTDC"></button>
+    <button type="button" class="courier-logo dhl-logo" data-courier="DHL" role="radio" aria-checked="false" aria-label="DHL"><img src="dhl-logo.png" alt="DHL"></button>
+    <button type="button" class="courier-logo delhivery-logo" data-courier="DELHIVERY" role="radio" aria-checked="false" aria-label="Delhivery"><b>DELHIVERY</b></button>
+    <button type="button" class="courier-logo movin-logo" data-courier="MOVIN" role="radio" aria-checked="false" aria-label="MOVIN"><b>MOVIN</b></button>
+    <button type="button" class="courier-logo tej-logo" data-courier="TEJ" role="radio" aria-checked="false" aria-label="TEJ Courier"><b>TEJ</b></button>
+  </div>
+
+  <div class="tracking-panel">
+  <div id="trackTypeBox" class="type-switch awb-switch" role="group" aria-label="Tracking type">
+    <label><input type="radio" name="trackType" value="AWB" checked> <b>AWB</b></label>
+  </div>
+
+  <div id="trackingModeBox" class="type-switch tracking-mode-switch" role="group" aria-label="Tracking mode">
+    <label><input type="radio" name="trackingMode" value="SINGLE" checked> <b>Single Tracking</b></label>
+    <label><input type="radio" name="trackingMode" value="MULTIPLE"> <b>Multiple Tracking</b></label>
+  </div>
+
+  <div id="singleTrackBox">
+  <div class="track">
+    <input id="awb" autocomplete="off" placeholder="Enter AWB / Consignment Number">
+    <button onclick="trackOne()">⌕ &nbsp; TRACK NOW</button>
+  </div>
+  <div id="trackonModeBox" class="mode-box"><label><input type="radio" name="sourceMode" value="PUBLIC" checked> Trackon Public Website (No API)</label><label><input type="radio" name="sourceMode" value="API"> Official API</label></div>
+  <div id="indiaPostNote" class="mode-box hidden">India Post uses the official public Track &amp; Trace page. A visible browser window will open. Complete the CAPTCHA only; <b>Search will be clicked automatically</b>. The website will wait up to 5 minutes for the result. No CAPTCHA/security bypass is used.</div>
+
+  </div>
+  <div id="multiBox" class="multi-box hidden">
+    <div class="multi-title"><b>Multiple Tracking Numbers</b><small>Enter one number per line, or separate numbers with comma.</small></div>
+    <textarea id="multiAwb" rows="3" placeholder="AWB001&#10;AWB002&#10;AWB003"></textarea>
+    <button class="secondary" onclick="trackMultiple()">TRACK ALL</button>
+  </div>
+  <div id="msg"></div><div class="public-note">Trackon Public mode uses the normal Trackon tracking page. India Post mode uses the official public Track &amp; Trace page with user-completed CAPTCHA. No security bypass is used.</div>
+  </div>
+</section>
+
+
+<section id="result" class="card hidden">
+  <div class="result-actions">
+    <button class="secondary print-btn" onclick="printTracking()">PRINT TRACKING</button>
+  </div>
+  <!-- Shipment summary is kept hidden to preserve the existing tracking logic.
+       The compact result view starts directly with Tracking History. -->
+  <div class="hidden" aria-hidden="true">
+    <div class="head">
+      <div><h2 id="status"></h2></div>
+      <b class="courier-badge" id="courierBadge">TRACKON</b>
+    </div>
+    <div class="summary-grid">
+      <div><small>CONSIGNMENT NO.</small><b id="rAwb">-</b></div>
+      <div><small>BOOKING DATE</small><b id="bookingDate">-</b></div>
+      <div><small>DUE DATE</small><b id="dueDate">-</b></div>
+      <div><small>TRANSACTION NO.</small><b id="transactionNo">-</b></div>
+      <div><small>LOCATION</small><b id="location">-</b></div>
+      <div><small>DESTINATION</small><b id="destination">-</b></div>
+      <div><small>LAST UPDATED</small><b id="updated">-</b></div>
+      <div id="podBox" class="pod-box hidden"><small>POD</small><a id="podLink" target="_blank" rel="noopener">VIEW POD</a></div>
+    </div>
+  </div>
+
+  <div id="liveNote" class="note hidden"></div>
+  <h3>Tracking History</h3>
+  <div class="table-wrap">
+    <table class="history-table">
+      <thead><tr><th>Sl No.</th><th>Event Date</th><th>Transaction No.</th><th>Location</th><th>Event</th><th>Entry Date &amp; Time</th></tr></thead>
+      <tbody id="events"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="multiResult" class="card hidden">
+  <div class="head"><div><small>MULTIPLE TRACKING</small><h2>Shipment Results</h2></div><b class="courier-badge" id="courierBadge">TRACKON</b></div>
+  <div class="table-wrap">
+    <table class="multi-table">
+      <thead><tr><th>Sl No.</th><th>AWB / Ref.</th><th>Status</th><th>Location</th><th>Destination</th><th>Due Date</th><th>Updated</th></tr></thead>
+      <tbody id="multiRows"></tbody>
+    </table>
+  </div>
+</section>
+
+<footer id="contact" class="compact-footer">
+  <div class="footer-bottom">© 2026 Omkar Courier Services. All rights reserved. &nbsp; | &nbsp; Multi Courier Tracking Portal &nbsp; | &nbsp; <a href="/admin.html">Admin</a></div>
+</footer>
+<script>
+const $=id=>document.getElementById(id);
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+function fmt(v){
+  if(!v)return '-';
+  const s=String(v).trim();
+  // TEJ official tracking returns dates as DD/MM/YYYY. JavaScript Date parses
+  // ambiguous strings such as 4/1/2026 as US-style MM/DD/YYYY, so preserve and
+  // normalize the official day-first date instead of reinterpreting it.
+  const m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(.*)$/);
+  if(m){
+    const day=m[1].padStart(2,'0'), month=m[2].padStart(2,'0'), year=m[3];
+    return esc(`${day}/${month}/${year}${m[4]||''}`);
+  }
+  const d=new Date(s);
+  return Number.isNaN(d.getTime())?esc(s):d.toLocaleString('en-IN');
+}
+function rawFmt(v){return v ? esc(v) : '-';}
+function courier(){return document.querySelector('.courier-logo.selected')?.dataset.courier || 'TRACKON';}
+function type(){return document.querySelector('input[name="trackType"]:checked').value;}
+function sourceMode(){return document.querySelector('input[name="sourceMode"]:checked').value;}
+function setPlaceholder(){ const c=courier(); $('awb').placeholder=c==='INDIA_POST'?'Enter India Post Consignment Number':'Enter '+courierLabel(c)+' AWB / Consignment Number'; }
+function trackingMode(){return document.querySelector('input[name="trackingMode"]:checked').value;}
+function setTrackingMode(){const multi=trackingMode()==='MULTIPLE';$('singleTrackBox').classList.toggle('hidden',multi);$('multiBox').classList.toggle('hidden',!multi);$('msg').textContent='';}
+function courierLabel(c){return ({TRACKON:'Trackon',INDIA_POST:'India Post',DTDC:'DTDC',DHL:'DHL',BLUE_DART:'Blue Dart',DELHIVERY:'Delhivery',MOVIN:'MOVIN',TEJ:'Tej Courier'})[c]||c;}
+function setCourierUI(){
+  const c=courier(), ip=c==='INDIA_POST', trackon=c==='TRACKON';
+  document.querySelectorAll('.courier-logo').forEach(el=>{const on=el.dataset.courier===c;el.classList.toggle('selected',on);el.setAttribute('aria-checked',String(on));});
+  $('trackTypeBox').classList.toggle('hidden',ip);
+  $('trackonModeBox').classList.toggle('hidden',!trackon);
+  $('indiaPostNote').classList.toggle('hidden',!ip);
+  if(ip){document.querySelector('input[name="trackingMode"][value="SINGLE"]').checked=true;setTrackingMode();document.querySelector('input[name="trackingMode"][value="MULTIPLE"]').disabled=true;}else{document.querySelector('input[name="trackingMode"][value="MULTIPLE"]').disabled=false;setTrackingMode();}
+  $('courierBadge').textContent=courierLabel(c).toUpperCase();
+  setPlaceholder();
+  $('msg').textContent='';
+}
+document.querySelectorAll('input[name="trackType"]').forEach(x=>x.addEventListener('change',setPlaceholder));
+function selectCourier(code){
+  const target=document.querySelector('.courier-logo[data-courier=\"'+code+'\"]');
+  if(!target)return;
+  document.querySelectorAll('.courier-logo').forEach(el=>{const on=el.dataset.courier===code;el.classList.toggle('selected',on);el.setAttribute('aria-checked',String(on));});
+  document.body.classList.remove('tracking-active');$('result').classList.add('hidden');$('multiResult').classList.add('hidden');
+  setCourierUI();
+  document.getElementById('tracking').scrollIntoView({behavior:'smooth',block:'center'});
+}
+// Delegate the click from the logo container so clicks on a logo image or its text
+// always select the parent courier button, including India Post.
+document.querySelector('.courier-logos').addEventListener('click',e=>{const btn=e.target.closest('.courier-logo');if(btn)selectCourier(btn.dataset.courier);});
+document.querySelectorAll('.courier-logo').forEach(btn=>btn.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectCourier(btn.dataset.courier);}}));
+document.querySelectorAll('input[name="trackingMode"]').forEach(x=>x.addEventListener('change',setTrackingMode));
+
+function renderResult(d, fallback){
+  $('status').textContent=d.status||'TRACKING AVAILABLE';
+  $('rAwb').textContent=d.awb||fallback||'-';
+  $('bookingDate').textContent=rawFmt(d.booking_date);
+  $('dueDate').textContent=rawFmt(d.due_date);
+  $('transactionNo').textContent=rawFmt(d.transaction_no);
+  $('location').textContent=d.location||'-';
+  $('destination').textContent=d.destination||'-';
+  $('updated').textContent=fmt(d.last_updated);
+  const pod=String(d.pod_url||'').trim();
+  if(/^https?:\/\//i.test(pod)){ $('podLink').href=pod; $('podBox').classList.remove('hidden'); } else $('podBox').classList.add('hidden');
+  $('events').innerHTML=(d.events||[]).map((e,i)=>`<tr><td>${i+1}</td><td>${fmt(e.event_time)}</td><td>${rawFmt(e.transaction_no||d.transaction_no)}</td><td>${rawFmt(e.location)}</td><td><b>${rawFmt(e.status||'Update')}</b>${e.description?`<div class="event-desc">${rawFmt(e.description)}</div>`:''}</td><td>${fmt(e.event_time)}</td></tr>`).join('')||'<tr><td colspan="6">No tracking history returned.</td></tr>';
+  if(d.live_error){$('liveNote').textContent='Live '+courierLabel(d.courier||courier())+' tracking could not be reached. Showing the locally saved result. '+d.live_error;$('liveNote').classList.remove('hidden');}else $('liveNote').classList.add('hidden');
+  $('result').classList.remove('hidden');
+  document.body.classList.add('tracking-active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+async function fetchTrack(a){
+  const url='/api/track/'+encodeURIComponent(a)+'?courier='+encodeURIComponent(courier())+'&type='+encodeURIComponent(type())+'&mode='+encodeURIComponent(sourceMode());
+  const x=await fetch(url);const d=await x.json();if(!x.ok)throw Error(d.message||d.error||'Tracking failed');return d;
+}
+async function trackOne(){
+  const a=$('awb').value.trim(); if(!a){$('msg').textContent='Please enter a tracking number.';return;}
+  if(!['TRACKON','INDIA_POST','MOVIN','TEJ'].includes(courier())){$('msg').textContent=courierLabel(courier())+' live tracking is not connected yet.';return;}
+  $('msg').textContent=courier()==='INDIA_POST'?'Opening India Post official tracking page. Type CAPTCHA; Search will click automatically...':(courier()==='MOVIN'?'Checking MOVIN official tracking page...':(courier()==='TEJ'?'Checking Tej Courier official tracking website...':(sourceMode()==='PUBLIC'?'Opening Trackon public tracking page...':'Checking Trackon API...'))); $('result').classList.add('hidden'); $('multiResult').classList.add('hidden'); document.body.classList.remove('tracking-active');
+  try{const d=await fetchTrack(a);renderResult(d,a);$('msg').textContent='';}catch(e){$('msg').textContent=e.message;}
+}
+async function trackMultiple(){
+  const raw=$('multiAwb').value.trim(); if(!raw){$('msg').textContent='Please enter multiple tracking numbers.';return;}
+  const selectedCourier=courier();
+  if(!['TRACKON','TEJ'].includes(selectedCourier)){
+    $('msg').textContent=selectedCourier==='INDIA_POST'
+      ?'Multiple tracking is disabled for India Post test mode. Track one consignment at a time.'
+      :'Multiple tracking is currently available for Trackon and TEJ Courier only.';
+    return;
+  }
+  const list=[...new Set(raw.split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean))];
+  $('msg').textContent=`Checking ${list.length} shipment(s)...`; $('result').classList.add('hidden'); $('multiResult').classList.remove('hidden'); document.body.classList.add('tracking-active');
+  $('multiRows').innerHTML='<tr><td colspan="7">Loading...</td></tr>';
+  let out;
+  const trackOneNumber=async a=>{try{return await fetchTrack(a);}catch(e){return {awb:a,status:'ERROR',location:'-',destination:'-',due_date:'',last_updated:'',error:e.message};}};
+  if(selectedCourier==='TEJ'){
+    // Avoid opening multiple public-site browser sessions at once.
+    out=[];
+    for(let i=0;i<list.length;i++){
+      $('msg').textContent=`Checking TEJ shipment ${i+1} of ${list.length}: ${list[i]}`;
+      out.push(await trackOneNumber(list[i]));
+    }
+  } else {
+    out=await Promise.all(list.map(trackOneNumber));
+  }
+  $('multiRows').innerHTML=out.map((d,i)=>`<tr><td>${i+1}</td><td><a href="#" onclick="showMulti('${encodeURIComponent(d.awb||list[i])}');return false">${rawFmt(d.awb||list[i])}</a></td><td><b>${rawFmt(d.status)}</b>${d.error?`<div class="error-mini">${rawFmt(d.error)}</div>`:''}</td><td>${rawFmt(d.location)}</td><td>${rawFmt(d.destination)}</td><td>${rawFmt(d.due_date)}</td><td>${fmt(d.last_updated)}</td></tr>`).join('');
+  window.__multi=out;$('msg').textContent=`${list.length} shipment(s) checked.`;window.scrollTo({top:0,behavior:'smooth'});
+}
+function showMulti(encoded){const a=decodeURIComponent(encoded);const d=(window.__multi||[]).find(x=>String(x.awb).toUpperCase()===a.toUpperCase());if(d&&!d.error){renderResult(d,a);}else if(d){$('msg').textContent=d.error||'Tracking failed.';}}
+function printTracking(){const old=document.title;document.title='Trackon Tracking - '+($('rAwb').textContent||'Shipment');window.print();setTimeout(()=>document.title=old,500);}
+$('awb').addEventListener('keydown',e=>{if(e.key==='Enter')trackOne();});
+setCourierUI();
+setTrackingMode();
+</script>
+</body></html>
