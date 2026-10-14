@@ -234,17 +234,25 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
       await target.press("Enter").catch(() => {});
     }
 
-    // The form submission normally navigates back to /courier-tracking with
-    // the tracking result rendered in the returned HTML. Wait for that
-    // navigation and also allow any client-side rendering to finish.
-    await page.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(2500);
-    await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(1000);
-    await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    // FAST TRACKON RESULT WAIT:
+    // Avoid repeated fixed delays and networkidle waits. Trackon may keep
+    // analytics/background requests open, so poll the rendered page instead.
+    await page.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => {});
 
-    const bodyText = await page.locator("body").innerText().catch(() => "");
+    let resultText = "";
+    const resultDeadline = Date.now() + 8000;
+    while (Date.now() < resultDeadline) {
+      resultText = await page.locator("body").innerText().catch(() => "");
+
+      const hasDate = /\d{1,2}\/\d{1,2}\/\d{4}/.test(resultText);
+      const hasTrackingEvent =
+        /delivered|in transit|out for delivery|transaction number|processing|dispatched|booking|arrived|received|undelivered|returned/i.test(resultText);
+
+      if (hasDate && hasTrackingEvent) break;
+      await page.waitForTimeout(400);
+    }
+
+    const bodyText = resultText || await page.locator("body").innerText().catch(() => "");
     const html = await page.content().catch(() => "");
     fs.writeFileSync(`${debugBase}.txt`, bodyText, "utf8");
     fs.writeFileSync(`${debugBase}.html`, html, "utf8");
