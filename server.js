@@ -282,9 +282,14 @@ async function callTrackonPublicPageUnlocked(awb, trackType = "AWB") {
     if (sameTrackonPage) target = await findTrackingInput();
     const reusedPage = Boolean(target);
     if (!reusedPage) {
-      await page.goto("https://trackon.in/courier-tracking", { waitUntil: "domcontentloaded", timeout: 30000 });
-      target = await findTrackingInput();
-      await page.waitForTimeout(100);
+      // Commit means the document navigation has started; do not wait for every
+      // external asset before locating the tracking form.
+      await page.goto("https://trackon.in/courier-tracking", { waitUntil: "commit", timeout: 20000 });
+      const inputDeadline = Date.now() + 6000;
+      while (Date.now() < inputDeadline && !target) {
+        target = await findTrackingInput();
+        if (!target) await page.waitForTimeout(150);
+      }
     }
     trackonTiming(reusedPage ? "reuse-trackon-page" : "page-goto-domcontentloaded", pageStarted, awbTag);
 
@@ -319,7 +324,9 @@ async function callTrackonPublicPageUnlocked(awb, trackType = "AWB") {
       // request, including the button's name/value.
       const submitButton = singleForm.locator('button[type="submit"]').first();
       if (await submitButton.count()) {
-        await submitButton.click();
+        // Do not make the click wait for the entire page load; the result loop
+        // below watches the rendered history and waits for it to stabilize.
+        await submitButton.click({ noWaitAfter: true, timeout: 8000 });
       } else {
         // Native prototype fallback for pages where the button is absent.
         await singleForm.evaluate(form => HTMLFormElement.prototype.submit.call(form));
@@ -330,8 +337,8 @@ async function callTrackonPublicPageUnlocked(awb, trackType = "AWB") {
     trackonTiming("fill-and-submit", pageStarted, awbTag);
 
     // Wait for the public page's complete history to finish rendering.
-    // Do not wait for DOMContentLoaded a second time: Playwright's submit click
-    // already handles navigation, and this extra wait was adding several seconds.
+    // The submit click does not block on full navigation. Poll the result body
+    // directly and keep waiting for the visible history to stabilize.
     // We stop only after a matching AWB + tracking event appears and the rendered
     // body stays unchanged for several short polls, preserving the full history.
     stage = "wait-result";
