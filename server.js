@@ -146,7 +146,35 @@ function chromeExecutable() {
   return candidates.find(x => { try { return require("fs").existsSync(x); } catch (_) { return false; } }) || null;
 }
 
+// Very short cache for repeated public-page lookups. This is not used for API mode.
+const trackonPublicCache = new Map();
+const TRACKON_PUBLIC_CACHE_MS = 20000;
+
+// Reuse one Chromium process for Trackon public tracking requests. Launching a
+// fresh browser for every AWB adds significant startup overhead on cloud hosts.
+let trackonBrowserPromise = null;
+async function getTrackonBrowser(executablePath) {
+  if (!chromium) throw Object.assign(new Error("Playwright Core is not installed."), { code: "PLAYWRIGHT_MISSING" });
+  if (!trackonBrowserPromise) {
+    trackonBrowserPromise = chromium.launch({ executablePath, headless: true }).catch(err => {
+      trackonBrowserPromise = null;
+      throw err;
+    });
+  }
+  const browser = await trackonBrowserPromise;
+  if (!browser.isConnected()) {
+    trackonBrowserPromise = chromium.launch({ executablePath, headless: true });
+    return await trackonBrowserPromise;
+  }
+  return browser;
+}
+
 async function callTrackonPublicPage(awb, trackType = "AWB") {
+  const cacheKey = `${String(awb).trim().toUpperCase()}|${trackType}`;
+  const cached = trackonPublicCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < TRACKON_PUBLIC_CACHE_MS) {
+    return JSON.parse(JSON.stringify(cached.result));
+  }
   if (!chromium) {
     const e = new Error("Public Trackon mode needs Playwright Core. Run npm install first.");
     e.code = "PLAYWRIGHT_MISSING";
@@ -165,11 +193,18 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const debugBase = path.join(debugDir, `${awb}_${stamp}`);
 
-  const browser = await chromium.launch({ executablePath, headless: true });
+  const browser = await getTrackonBrowser(executablePath);
+  let page = null;
   try {
-    const page = await browser.newPage({
+    page = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"
+    });
+    // Tracking only needs HTML and scripts; skip large visual resources to reduce load.
+    await page.route("**/*", route => {
+      const type = route.request().resourceType();
+      if (["image", "font", "media"].includes(type)) return route.abort();
+      return route.continue();
     });
 
     const networkBodies = [];
@@ -189,7 +224,7 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
     });
 
     await page.goto("https://trackon.in/courier-tracking", { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForTimeout(350);
+    await page.waitForTimeout(150);
 
     const inputs = page.locator("input:visible");
     const count = await inputs.count();
@@ -225,7 +260,7 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
       // request, including the button's name/value.
       const submitButton = singleForm.locator('button[type="submit"]').first();
       if (await submitButton.count()) {
-        await submitButton.click({ noWaitAfter: true });
+        await submitButton.click();
       } else {
         // Native prototype fallback for pages where the button is absent.
         await singleForm.evaluate(form => HTMLFormElement.prototype.submit.call(form));
@@ -237,8 +272,10 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
     // FAST TRACKON RESULT WAIT:
     // Avoid repeated fixed delays and networkidle waits. Trackon may keep
     // analytics/background requests open, so poll the rendered page instead.
+    await page.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => {});
+
     let resultText = "";
-    const resultDeadline = Date.now() + 6500;
+    const resultDeadline = Date.now() + 5000;
     while (Date.now() < resultDeadline) {
       resultText = await page.locator("body").innerText().catch(() => "");
 
@@ -247,12 +284,24 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
         /delivered|in transit|out for delivery|transaction number|processing|dispatched|booking|arrived|received|undelivered|returned/i.test(resultText);
 
       if (hasDate && hasTrackingEvent) break;
-      await page.waitForTimeout(250);
+      await page.waitForTimeout(200);
     }
 
     const bodyText = resultText || await page.locator("body").innerText().catch(() => "");
+    // Avoid writing HTML, network dumps and screenshots on every successful AWB.
+    // Diagnostics are saved only when a result cannot be read.
+    const saveTrackonDebug = async () => {
+      try {
+        const html = await page.content().catch(() => "");
+        fs.writeFileSync(`${debugBase}.txt`, bodyText, "utf8");
+        fs.writeFileSync(`${debugBase}.html`, html, "utf8");
+        fs.writeFileSync(`${debugBase}.network.json`, JSON.stringify(networkBodies, null, 2), "utf8");
+        await page.screenshot({ path: `${debugBase}.png`, fullPage: true }).catch(() => {});
+      } catch (_) {}
+    };
 
     if (/captcha|verify you are human|access denied/i.test(bodyText)) {
+      await saveTrackonDebug();
       const e = new Error("Trackon public page requested human verification. Public mode stopped; no CAPTCHA/security bypass is attempted.");
       e.code = "TRACKON_HUMAN_VERIFICATION";
       throw e;
@@ -355,19 +404,14 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
     });
 
     if (!history.length) {
-      // Save heavier diagnostics only on failure; successful requests avoid disk writes/screenshots.
-      const html = await page.content().catch(() => "");
-      fs.writeFileSync(`${debugBase}.txt`, bodyText, "utf8");
-      fs.writeFileSync(`${debugBase}.html`, html, "utf8");
-      fs.writeFileSync(`${debugBase}.network.json`, JSON.stringify(networkBodies, null, 2), "utf8");
-      await page.screenshot({ path: `${debugBase}.png`, fullPage: true }).catch(() => {});
+      await saveTrackonDebug();
       const e = new Error(`Trackon page returned no recognizable tracking rows. Debug files were saved in data\\trackon-debug. Page title: ${await page.title().catch(() => "")}. Current URL: ${page.url()}`);
       e.code = "TRACKON_ROW_FORMAT_UNKNOWN";
       throw e;
     }
 
     const latest = history[0];
-    return {
+    const finalResult = {
       awb: consignment || awb,
       courier: "TRACKON",
       status: latest.status || "TRACKING AVAILABLE",
@@ -381,8 +425,16 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
       events: history,
       source: "TRACKON_PUBLIC_PAGE"
     };
+    trackonPublicCache.set(cacheKey, { at: Date.now(), result: finalResult });
+    // Keep cache bounded for long-running service instances.
+    if (trackonPublicCache.size > 300) {
+      const oldestKey = trackonPublicCache.keys().next().value;
+      if (oldestKey) trackonPublicCache.delete(oldestKey);
+    }
+    return finalResult;
   } finally {
-    await browser.close();
+    if (page) await page.close().catch(() => {});
+    // Keep the shared Chromium process alive for the next Trackon request.
   }
 }
 
