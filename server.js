@@ -163,6 +163,9 @@ function trackonAwbTag(awb) {
 // Reuse one Chromium process for Trackon public tracking requests. Launching a
 // fresh browser for every AWB adds significant startup overhead on cloud hosts.
 let trackonBrowserPromise = null;
+let trackonReusablePage = null;
+// A single reusable page must not process two AWBs at once.
+let trackonPublicQueue = Promise.resolve();
 async function getTrackonBrowser(executablePath) {
   if (!chromium) throw Object.assign(new Error("Playwright Core is not installed."), { code: "PLAYWRIGHT_MISSING" });
   if (!trackonBrowserPromise) {
@@ -171,15 +174,39 @@ async function getTrackonBrowser(executablePath) {
       throw err;
     });
   }
-  const browser = await trackonBrowserPromise;
+  let browser = await trackonBrowserPromise;
   if (!browser.isConnected()) {
-    trackonBrowserPromise = chromium.launch({ executablePath, headless: true });
-    return await trackonBrowserPromise;
+    trackonReusablePage = null;
+    trackonBrowserPromise = chromium.launch({ executablePath, headless: true }).catch(err => {
+      trackonBrowserPromise = null;
+      throw err;
+    });
+    browser = await trackonBrowserPromise;
   }
   return browser;
 }
-
+async function getTrackonReusablePage(browser) {
+  if (!trackonReusablePage || trackonReusablePage.isClosed()) {
+    trackonReusablePage = await browser.newPage({
+      viewport: { width: 1440, height: 1000 },
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"
+    });
+    await trackonReusablePage.route("**/*", route => {
+      const type = route.request().resourceType();
+      if (["image", "font", "media"].includes(type)) return route.abort();
+      return route.continue();
+    });
+    trackonReusablePage.on("close", () => { trackonReusablePage = null; });
+  }
+  return trackonReusablePage;
+}
 async function callTrackonPublicPage(awb, trackType = "AWB") {
+  const task = trackonPublicQueue.then(() => callTrackonPublicPageUnlocked(awb, trackType));
+  trackonPublicQueue = task.catch(() => {});
+  return task;
+}
+
+async function callTrackonPublicPageUnlocked(awb, trackType = "AWB") {
   const requestStarted = process.hrtime.bigint();
   const awbTag = trackonAwbTag(awb);
   console.log(`[Trackon timing] start | ${awbTag} | type=${trackType}`);
@@ -211,21 +238,13 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
   const browser = await getTrackonBrowser(executablePath);
   trackonTiming("get-browser", browserStarted, awbTag);
   let page = null;
-  let stage = "new-page";
+  let stage = "get-reusable-page";
   let pageStarted = process.hrtime.bigint();
   try {
-    page = await browser.newPage({
-      viewport: { width: 1440, height: 1000 },
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126 Safari/537.36"
-    });
-    // Tracking only needs HTML and scripts; skip large visual resources to reduce load.
-    await page.route("**/*", route => {
-      const type = route.request().resourceType();
-      if (["image", "font", "media"].includes(type)) return route.abort();
-      return route.continue();
-    });
-
-    trackonTiming("new-page-and-route-setup", pageStarted, awbTag);
+    page = await getTrackonReusablePage(browser);
+    // Response listeners are per-request; clear old listeners to avoid stale
+    // network bodies and listener accumulation while reusing the same page.
+    page.removeAllListeners("response");
     const networkBodies = [];
     page.on("response", async response => {
       try {
@@ -242,25 +261,38 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
       } catch (_) {}
     });
 
-    stage = "page-goto";
+    stage = "page-goto-or-reuse";
     pageStarted = process.hrtime.bigint();
-    await page.goto("https://trackon.in/courier-tracking", { waitUntil: "domcontentloaded", timeout: 30000 });
-    trackonTiming("page-goto-domcontentloaded", pageStarted, awbTag);
-    await page.waitForTimeout(150);
+    let target = null;
+    const findTrackingInput = async () => {
+      const inputs = page.locator("input:visible");
+      const count = await inputs.count().catch(() => 0);
+      let found = null;
+      for (let i = 0; i < count; i++) {
+        const el = inputs.nth(i);
+        const meta = ((await el.getAttribute("placeholder").catch(() => "")) || "") + " " + ((await el.getAttribute("name").catch(() => "")) || "") + " " + ((await el.getAttribute("id").catch(() => "")) || "") + " " + ((await el.getAttribute("aria-label").catch(() => "")) || "");
+        if (/awb|consign|tracking|order|ref/i.test(meta)) { found = el; break; }
+      }
+      if (!found && count) found = inputs.nth(0);
+      return found;
+    };
+    // After a successful lookup Trackon usually leaves the public tracking
+    // form on the result page. Reuse it instead of reloading the whole site.
+    const sameTrackonPage = /(^|\.)trackon\.in$/i.test(new URL(page.url()).hostname) && page.url().includes("/courier-tracking");
+    if (sameTrackonPage) target = await findTrackingInput();
+    const reusedPage = Boolean(target);
+    if (!reusedPage) {
+      await page.goto("https://trackon.in/courier-tracking", { waitUntil: "domcontentloaded", timeout: 30000 });
+      target = await findTrackingInput();
+      await page.waitForTimeout(100);
+    }
+    trackonTiming(reusedPage ? "reuse-trackon-page" : "page-goto-domcontentloaded", pageStarted, awbTag);
 
     stage = "find-input";
     pageStarted = process.hrtime.bigint();
-    const inputs = page.locator("input:visible");
-    const count = await inputs.count();
-    let target = null;
-    for (let i = 0; i < count; i++) {
-      const el = inputs.nth(i);
-      const meta = ((await el.getAttribute("placeholder")) || "") + " " + ((await el.getAttribute("name")) || "") + " " + ((await el.getAttribute("id")) || "") + " " + ((await el.getAttribute("aria-label")) || "");
-      if (/awb|consign|tracking|order|ref/i.test(meta)) { target = el; break; }
-    }
-    if (!target && count) target = inputs.nth(0);
+    if (!target) target = await findTrackingInput();
     if (!target) throw new Error("Trackon tracking input was not found on the public page.");
-    trackonTiming("find-input", pageStarted, `${awbTag} | visibleInputs=${count}`);
+    trackonTiming("find-input", pageStarted, `${awbTag} | reusedPage=${reusedPage}`);
 
     stage = "fill-submit";
     pageStarted = process.hrtime.bigint();
@@ -312,8 +344,9 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
       const hasDate = /\d{1,2}\/\d{1,2}\/\d{4}/.test(resultText);
       const hasTrackingEvent =
         /delivered|in transit|out for delivery|transaction number|processing|dispatched|booking|arrived|received|undelivered|returned/i.test(resultText);
+      const hasCurrentAwb = resultText.toUpperCase().includes(String(awb).trim().toUpperCase());
 
-      if (hasDate && hasTrackingEvent) break;
+      if (hasDate && hasTrackingEvent && hasCurrentAwb) break;
       await page.waitForTimeout(200);
     }
     trackonTiming("wait-for-result", pageStarted, `${awbTag} | resultChars=${resultText.length}`);
@@ -321,6 +354,11 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
     stage = "parse-result";
     pageStarted = process.hrtime.bigint();
     const bodyText = resultText || await page.locator("body").innerText().catch(() => "");
+    if (!bodyText.toUpperCase().includes(String(awb).trim().toUpperCase())) {
+      const e = new Error("Trackon did not show a result matching the requested AWB before the timeout. Please retry; previous shipment data was not reused.");
+      e.code = "TRACKON_RESULT_NOT_READY";
+      throw e;
+    }
     // Avoid writing HTML, network dumps and screenshots on every successful AWB.
     // Diagnostics are saved only when a result cannot be read.
     const saveTrackonDebug = async () => {
@@ -472,8 +510,9 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
     console.error(`[Trackon timing] failure details | ${awbTag} | stage=${stage} | ${String(err.message || err).slice(0, 240)}`);
     throw err;
   } finally {
-    if (page) await page.close().catch(() => {});
-    // Keep the shared Chromium process alive for the next Trackon request.
+    // Keep the reusable Trackon page and Chromium process alive for the next AWB.
+    // If the page crashed or was closed by the upstream site, recreate it next time.
+    if (page && page.isClosed()) trackonReusablePage = null;
   }
 }
 
