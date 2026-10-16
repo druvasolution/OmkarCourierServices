@@ -1023,18 +1023,38 @@ async function callTrackon(awb, trackType = "AWB") {
     url.searchParams.set("TrackType", trackType);
     requestUrl = url.toString();
   } else if (mode === "GET") {
-    url.searchParams.set(trackType === "ORDER" ? "OrderRef" : "AWB", awb);
-    url.searchParams.set("TrackType", trackType);
-    url.searchParams.set("UserID", s.user_id || "");
-    url.searchParams.set("Pass", s.password || "");
+    // Trackon's Customer Shipment Tracking API document specifies these exact query names:
+    // AWBNo, AppKey, userID, Password. Do not add credentials to logs.
+    url.searchParams.set("AWBNo", awb);
     url.searchParams.set("AppKey", s.app_key || "");
+    url.searchParams.set("userID", s.user_id || "");
+    url.searchParams.set("Password", s.password || "");
     requestUrl = url.toString();
   } else {
     headers["Content-Type"] = "application/json";
     options.body = JSON.stringify(bodyObject);
   }
 
-  const response = await fetch(requestUrl, options);
+  let response;
+  try {
+    response = await fetch(requestUrl, options);
+  } catch (fetchErr) {
+    // Diagnostic logging intentionally includes only the host and error code,
+    // never the query string because it contains API credentials.
+    const causeCode = fetchErr && fetchErr.cause && fetchErr.cause.code;
+    const safeCode = causeCode || fetchErr.code || fetchErr.name || "FETCH_ERROR";
+    console.error("[Trackon API connection failed]", JSON.stringify({
+      host: url.host,
+      protocol: url.protocol,
+      code: safeCode,
+      name: fetchErr.name || "Error",
+      message: fetchErr.message || "fetch failed"
+    }));
+    const err = new Error(`Trackon API connection failed (${safeCode}). Check Render Application Logs.`);
+    err.code = "TRACKON_CONNECTION_FAILED";
+    err.causeCode = safeCode;
+    throw err;
+  }
   const text = await response.text();
   const json = safeJson(text);
   if (!response.ok) {
@@ -1178,6 +1198,10 @@ app.post("/api/admin/test-trackon", async (req, res) => {
     const result = await callTrackon(awb, trackType);
     res.json({ ok: true, awb, type: trackType, status: result.status, location: result.location, event_count: result.events.length });
   } catch (err) {
+    console.error("[Trackon test request failed]", JSON.stringify({
+      code: err.code || "TRACKON_API_ERROR",
+      message: err.message || "Unknown error"
+    }));
     res.status(502).json({ ok: false, error: err.code || "TRACKON_API_ERROR", message: err.message });
   }
 });
