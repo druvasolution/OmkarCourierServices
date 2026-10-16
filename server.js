@@ -189,7 +189,7 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
     });
 
     await page.goto("https://trackon.in/courier-tracking", { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(350);
 
     const inputs = page.locator("input:visible");
     const count = await inputs.count();
@@ -225,7 +225,7 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
       // request, including the button's name/value.
       const submitButton = singleForm.locator('button[type="submit"]').first();
       if (await submitButton.count()) {
-        await submitButton.click();
+        await submitButton.click({ noWaitAfter: true });
       } else {
         // Native prototype fallback for pages where the button is absent.
         await singleForm.evaluate(form => HTMLFormElement.prototype.submit.call(form));
@@ -237,10 +237,8 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
     // FAST TRACKON RESULT WAIT:
     // Avoid repeated fixed delays and networkidle waits. Trackon may keep
     // analytics/background requests open, so poll the rendered page instead.
-    await page.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => {});
-
     let resultText = "";
-    const resultDeadline = Date.now() + 8000;
+    const resultDeadline = Date.now() + 6500;
     while (Date.now() < resultDeadline) {
       resultText = await page.locator("body").innerText().catch(() => "");
 
@@ -249,15 +247,10 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
         /delivered|in transit|out for delivery|transaction number|processing|dispatched|booking|arrived|received|undelivered|returned/i.test(resultText);
 
       if (hasDate && hasTrackingEvent) break;
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(250);
     }
 
     const bodyText = resultText || await page.locator("body").innerText().catch(() => "");
-    const html = await page.content().catch(() => "");
-    fs.writeFileSync(`${debugBase}.txt`, bodyText, "utf8");
-    fs.writeFileSync(`${debugBase}.html`, html, "utf8");
-    fs.writeFileSync(`${debugBase}.network.json`, JSON.stringify(networkBodies, null, 2), "utf8");
-    await page.screenshot({ path: `${debugBase}.png`, fullPage: true }).catch(() => {});
 
     if (/captcha|verify you are human|access denied/i.test(bodyText)) {
       const e = new Error("Trackon public page requested human verification. Public mode stopped; no CAPTCHA/security bypass is attempted.");
@@ -362,6 +355,12 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
     });
 
     if (!history.length) {
+      // Save heavier diagnostics only on failure; successful requests avoid disk writes/screenshots.
+      const html = await page.content().catch(() => "");
+      fs.writeFileSync(`${debugBase}.txt`, bodyText, "utf8");
+      fs.writeFileSync(`${debugBase}.html`, html, "utf8");
+      fs.writeFileSync(`${debugBase}.network.json`, JSON.stringify(networkBodies, null, 2), "utf8");
+      await page.screenshot({ path: `${debugBase}.png`, fullPage: true }).catch(() => {});
       const e = new Error(`Trackon page returned no recognizable tracking rows. Debug files were saved in data\\trackon-debug. Page title: ${await page.title().catch(() => "")}. Current URL: ${page.url()}`);
       e.code = "TRACKON_ROW_FORMAT_UNKNOWN";
       throw e;
