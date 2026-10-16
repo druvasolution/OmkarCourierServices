@@ -329,27 +329,41 @@ async function callTrackonPublicPageUnlocked(awb, trackType = "AWB") {
     }
     trackonTiming("fill-and-submit", pageStarted, awbTag);
 
-    // FAST TRACKON RESULT WAIT:
-    // Avoid repeated fixed delays and networkidle waits. Trackon may keep
-    // analytics/background requests open, so poll the rendered page instead.
+    // Wait for the public page's complete history to finish rendering.
+    // Do not wait for DOMContentLoaded a second time: Playwright's submit click
+    // already handles navigation, and this extra wait was adding several seconds.
+    // We stop only after a matching AWB + tracking event appears and the rendered
+    // body stays unchanged for several short polls, preserving the full history.
     stage = "wait-result";
     pageStarted = process.hrtime.bigint();
-    await page.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => {});
-
     let resultText = "";
-    const resultDeadline = Date.now() + 5000;
+    let previousText = "";
+    let stablePolls = 0;
+    let firstValidAt = 0;
+    const resultDeadline = Date.now() + 10000;
     while (Date.now() < resultDeadline) {
       resultText = await page.locator("body").innerText().catch(() => "");
-
       const hasDate = /\d{1,2}\/\d{1,2}\/\d{4}/.test(resultText);
       const hasTrackingEvent =
-        /delivered|in transit|out for delivery|transaction number|processing|dispatched|booking|arrived|received|undelivered|returned/i.test(resultText);
+        /delivered|in transit|out for delivery|transaction number|processing|dispatched|booking|arrived|received|undelivered|returned|picked up|manifest/i.test(resultText);
       const hasCurrentAwb = resultText.toUpperCase().includes(String(awb).trim().toUpperCase());
+      const isValidResult = hasDate && hasTrackingEvent && hasCurrentAwb;
 
-      if (hasDate && hasTrackingEvent && hasCurrentAwb) break;
-      await page.waitForTimeout(200);
+      if (isValidResult) {
+        if (!firstValidAt) firstValidAt = Date.now();
+        if (resultText === previousText) stablePolls++;
+        else stablePolls = 0;
+        // At least 600ms of result settling plus four identical polls helps
+        // ensure all visible history rows have arrived before parsing.
+        if (stablePolls >= 4 && Date.now() - firstValidAt >= 600) break;
+      } else {
+        stablePolls = 0;
+        firstValidAt = 0;
+      }
+      previousText = resultText;
+      await page.waitForTimeout(150);
     }
-    trackonTiming("wait-for-result", pageStarted, `${awbTag} | resultChars=${resultText.length}`);
+    trackonTiming("wait-for-result", pageStarted, `${awbTag} | resultChars=${resultText.length} | stablePolls=${stablePolls}`);
 
     stage = "parse-result";
     pageStarted = process.hrtime.bigint();
@@ -385,35 +399,31 @@ async function callTrackonPublicPageUnlocked(awb, trackType = "AWB") {
 
     let history = [];
 
-    // 1) Read every visible table, without requiring exact headers.
-    const tables = page.locator("table:visible");
-    const tc = await tables.count();
-    for (let i = 0; i < tc && !history.length; i++) {
-      const trs = tables.nth(i).locator("tr:visible");
-      const rc = await trs.count();
-      for (let j = 0; j < rc; j++) {
-        const cells = trs.nth(j).locator("th,td");
-        const cc = await cells.count();
-        if (cc < 3) continue;
-        const vals = [];
-        for (let k = 0; k < cc; k++) vals.push((await cells.nth(k).innerText()).replace(/\s+/g, " ").trim());
-        const row = vals.join(" | ");
-        if (/transaction\s*number/i.test(row) && /location/i.test(row) && /event/i.test(row)) continue;
-        if (vals.some(v => /\d{1,2}\/\d{1,2}\/\d{4}/.test(v)) && vals.some(v => /[A-Z0-9_-]{6,}/i.test(v))) {
-          const dateIndex = vals.findIndex(v => /\d{1,2}\/\d{1,2}\/\d{4}/.test(v));
-          const eventIndex = vals.length - 1;
-          const txIndex = vals.findIndex((v, idx) => idx !== dateIndex && /^[A-Z0-9_-]{6,}$/i.test(v));
-          if (txIndex >= 0) {
-            const locationIndex = txIndex + 1 < vals.length ? txIndex + 1 : -1;
-            const evt = vals[eventIndex] || "";
-            if (locationIndex >= 0) history.push({
-              event_time: vals[dateIndex] || "",
-              transaction_no: vals[txIndex] || "",
-              location: vals[locationIndex] || "",
-              status: evt || "TRACKING UPDATE",
-              description: evt || "TRACKING UPDATE"
-            });
-          }
+    // 1) Read all visible table rows in one browser evaluation instead of many
+    // Playwright round-trips. Keep every matching row so the complete history
+    // is preserved rather than stopping after the first event.
+    const tableRows = await page.locator("table:visible tr:visible").evaluateAll(rows =>
+      rows.map(tr => Array.from(tr.querySelectorAll("th,td")).map(td =>
+        String(td.innerText || "").replace(/\s+/g, " ").trim()
+      )).filter(cells => cells.length >= 3)
+    ).catch(() => []);
+    for (const vals of tableRows) {
+      const row = vals.join(" | ");
+      if (/transaction\s*number/i.test(row) && /location/i.test(row) && /event/i.test(row)) continue;
+      if (vals.some(v => /\d{1,2}\/\d{1,2}\/\d{4}/.test(v)) && vals.some(v => /[A-Z0-9_-]{6,}/i.test(v))) {
+        const dateIndex = vals.findIndex(v => /\d{1,2}\/\d{1,2}\/\d{4}/.test(v));
+        const eventIndex = vals.length - 1;
+        const txIndex = vals.findIndex((v, idx) => idx !== dateIndex && /^[A-Z0-9_-]{6,}$/i.test(v));
+        if (txIndex >= 0) {
+          const locationIndex = txIndex + 1 < vals.length ? txIndex + 1 : -1;
+          const evt = vals[eventIndex] || "";
+          if (locationIndex >= 0) history.push({
+            event_time: vals[dateIndex] || "",
+            transaction_no: vals[txIndex] || "",
+            location: vals[locationIndex] || "",
+            status: evt || "TRACKING UPDATE",
+            description: evt || "TRACKING UPDATE"
+          });
         }
       }
     }
