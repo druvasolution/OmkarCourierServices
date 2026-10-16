@@ -336,20 +336,27 @@ async function callTrackonPublicPageUnlocked(awb, trackType = "AWB") {
     }
     trackonTiming("fill-and-submit", pageStarted, awbTag);
 
-    // Wait for the public page's complete history to finish rendering.
-    // The submit click does not block on full navigation. Poll the result body
-    // directly and keep waiting for the visible history to stabilize.
-    // We stop only after a matching AWB + tracking event appears and the rendered
-    // body stays unchanged for several short polls, preserving the full history.
+    // Wait for the public page's complete history to render. The whole body can
+    // keep changing because of unrelated page text, clocks, or banners. Instead,
+    // stabilize the visible tracking-table rows (and fall back to body text only
+    // when no table rows are available). This avoids waiting for irrelevant text
+    // while still requiring the requested AWB, a date, an event, and repeated
+    // identical history snapshots before parsing.
     stage = "wait-result";
     pageStarted = process.hrtime.bigint();
     let resultText = "";
-    let previousText = "";
+    let previousSnapshot = "";
     let stablePolls = 0;
     let firstValidAt = 0;
     const resultDeadline = Date.now() + 10000;
     while (Date.now() < resultDeadline) {
       resultText = await page.locator("body").innerText().catch(() => "");
+      const visibleRows = await page.locator("table:visible tr:visible").evaluateAll(rows =>
+        rows.map(tr => String(tr.innerText || "").replace(/\s+/g, " ").trim())
+          .filter(row => row && /\d{1,2}\/\d{1,2}\/\d{4}/.test(row))
+      ).catch(() => []);
+      const tableSnapshot = visibleRows.join("\n");
+      const snapshot = tableSnapshot.length >= 20 ? tableSnapshot : resultText;
       const hasDate = /\d{1,2}\/\d{1,2}\/\d{4}/.test(resultText);
       const hasTrackingEvent =
         /delivered|in transit|out for delivery|transaction number|processing|dispatched|booking|arrived|received|undelivered|returned|picked up|manifest/i.test(resultText);
@@ -358,16 +365,16 @@ async function callTrackonPublicPageUnlocked(awb, trackType = "AWB") {
 
       if (isValidResult) {
         if (!firstValidAt) firstValidAt = Date.now();
-        if (resultText === previousText) stablePolls++;
+        if (snapshot === previousSnapshot) stablePolls++;
         else stablePolls = 0;
-        // At least 600ms of result settling plus four identical polls helps
-        // ensure all visible history rows have arrived before parsing.
-        if (stablePolls >= 4 && Date.now() - firstValidAt >= 600) break;
+        // Require three matching snapshots spanning at least 450ms. The
+        // deadline remains as a safety fallback for pages that never stabilize.
+        if (stablePolls >= 3 && Date.now() - firstValidAt >= 450) break;
       } else {
         stablePolls = 0;
         firstValidAt = 0;
       }
-      previousText = resultText;
+      previousSnapshot = snapshot;
       await page.waitForTimeout(150);
     }
     trackonTiming("wait-for-result", pageStarted, `${awbTag} | resultChars=${resultText.length} | stablePolls=${stablePolls}`);
