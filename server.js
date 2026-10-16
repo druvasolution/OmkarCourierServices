@@ -150,6 +150,16 @@ function chromeExecutable() {
 const trackonPublicCache = new Map();
 const TRACKON_PUBLIC_CACHE_MS = 20000;
 
+// Safe performance diagnostics: never log credentials or full AWB values.
+function trackonTiming(label, startedAt, details = "") {
+  const elapsedMs = Math.round(Number(process.hrtime.bigint() - startedAt) / 1e6);
+  console.log(`[Trackon timing] ${label} ${elapsedMs}ms${details ? ` | ${details}` : ""}`);
+}
+function trackonAwbTag(awb) {
+  const value = String(awb || "");
+  return `awbSuffix=${value.slice(-4) || "none"}`;
+}
+
 // Reuse one Chromium process for Trackon public tracking requests. Launching a
 // fresh browser for every AWB adds significant startup overhead on cloud hosts.
 let trackonBrowserPromise = null;
@@ -170,9 +180,13 @@ async function getTrackonBrowser(executablePath) {
 }
 
 async function callTrackonPublicPage(awb, trackType = "AWB") {
+  const requestStarted = process.hrtime.bigint();
+  const awbTag = trackonAwbTag(awb);
+  console.log(`[Trackon timing] start | ${awbTag} | type=${trackType}`);
   const cacheKey = `${String(awb).trim().toUpperCase()}|${trackType}`;
   const cached = trackonPublicCache.get(cacheKey);
   if (cached && Date.now() - cached.at < TRACKON_PUBLIC_CACHE_MS) {
+    trackonTiming("cache-hit", requestStarted, awbTag);
     return JSON.parse(JSON.stringify(cached.result));
   }
   if (!chromium) {
@@ -193,8 +207,12 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const debugBase = path.join(debugDir, `${awb}_${stamp}`);
 
+  const browserStarted = process.hrtime.bigint();
   const browser = await getTrackonBrowser(executablePath);
+  trackonTiming("get-browser", browserStarted, awbTag);
   let page = null;
+  let stage = "new-page";
+  let pageStarted = process.hrtime.bigint();
   try {
     page = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
@@ -207,6 +225,7 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
       return route.continue();
     });
 
+    trackonTiming("new-page-and-route-setup", pageStarted, awbTag);
     const networkBodies = [];
     page.on("response", async response => {
       try {
@@ -223,9 +242,14 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
       } catch (_) {}
     });
 
+    stage = "page-goto";
+    pageStarted = process.hrtime.bigint();
     await page.goto("https://trackon.in/courier-tracking", { waitUntil: "domcontentloaded", timeout: 30000 });
+    trackonTiming("page-goto-domcontentloaded", pageStarted, awbTag);
     await page.waitForTimeout(150);
 
+    stage = "find-input";
+    pageStarted = process.hrtime.bigint();
     const inputs = page.locator("input:visible");
     const count = await inputs.count();
     let target = null;
@@ -236,7 +260,10 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
     }
     if (!target && count) target = inputs.nth(0);
     if (!target) throw new Error("Trackon tracking input was not found on the public page.");
+    trackonTiming("find-input", pageStarted, `${awbTag} | visibleInputs=${count}`);
 
+    stage = "fill-submit";
+    pageStarted = process.hrtime.bigint();
     await target.fill(awb);
     if (trackType === "ORDER") {
       const order = page.getByText(/Order\s*\/\s*Ref\s*Number/i).first();
@@ -268,10 +295,13 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
     } else {
       await target.press("Enter").catch(() => {});
     }
+    trackonTiming("fill-and-submit", pageStarted, awbTag);
 
     // FAST TRACKON RESULT WAIT:
     // Avoid repeated fixed delays and networkidle waits. Trackon may keep
     // analytics/background requests open, so poll the rendered page instead.
+    stage = "wait-result";
+    pageStarted = process.hrtime.bigint();
     await page.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => {});
 
     let resultText = "";
@@ -286,7 +316,10 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
       if (hasDate && hasTrackingEvent) break;
       await page.waitForTimeout(200);
     }
+    trackonTiming("wait-for-result", pageStarted, `${awbTag} | resultChars=${resultText.length}`);
 
+    stage = "parse-result";
+    pageStarted = process.hrtime.bigint();
     const bodyText = resultText || await page.locator("body").innerText().catch(() => "");
     // Avoid writing HTML, network dumps and screenshots on every successful AWB.
     // Diagnostics are saved only when a result cannot be read.
@@ -426,12 +459,18 @@ async function callTrackonPublicPage(awb, trackType = "AWB") {
       source: "TRACKON_PUBLIC_PAGE"
     };
     trackonPublicCache.set(cacheKey, { at: Date.now(), result: finalResult });
+    trackonTiming("parse-and-cache-result", pageStarted, `${awbTag} | events=${history.length}`);
+    trackonTiming("TOTAL public tracking", requestStarted, `${awbTag} | result=success`);
     // Keep cache bounded for long-running service instances.
     if (trackonPublicCache.size > 300) {
       const oldestKey = trackonPublicCache.keys().next().value;
       if (oldestKey) trackonPublicCache.delete(oldestKey);
     }
     return finalResult;
+  } catch (err) {
+    trackonTiming("TOTAL public tracking failed", requestStarted, `${awbTag} | stage=${stage} | code=${err.code || "ERROR"}`);
+    console.error(`[Trackon timing] failure details | ${awbTag} | stage=${stage} | ${String(err.message || err).slice(0, 240)}`);
+    throw err;
   } finally {
     if (page) await page.close().catch(() => {});
     // Keep the shared Chromium process alive for the next Trackon request.
@@ -1144,7 +1183,9 @@ function saveLiveResult(result) {
 }
 
 app.get("/api/track/:awb", async (req, res) => {
+  const routeStarted = process.hrtime.bigint();
   const awb = String(req.params.awb || "").trim();
+  const awbTag = trackonAwbTag(awb);
   const trackType = String(req.query.type || "AWB").toUpperCase() === "ORDER" ? "ORDER" : "AWB";
   if (!awb) return res.status(400).json({ error: "AWB is required" });
 
@@ -1162,8 +1203,10 @@ app.get("/api/track/:awb", async (req, res) => {
       live = mode === "PUBLIC" ? await callTrackonPublicPage(awb, trackType) : await callTrackon(awb, trackType);
     }
     const saved = saveLiveResult(live);
+    trackonTiming("HTTP /api/track total", routeStarted, `${awbTag} | courier=${String(req.query.courier || "TRACKON").toUpperCase()} | mode=${String(req.query.mode || "API").toUpperCase()} | result=success`);
     return res.json(saved || live);
   } catch (err) {
+    trackonTiming("HTTP /api/track failed", routeStarted, `${awbTag} | code=${err.code || "ERROR"}`);
     // If a local shipment exists, keep the local result available while clearly reporting live failure.
     const local = getShipment(awb);
     if (local) {
@@ -1180,14 +1223,18 @@ app.get("/api/track/:awb", async (req, res) => {
 });
 
 app.post("/api/public-trackon", async (req, res) => {
+  const routeStarted = process.hrtime.bigint();
   const awb = String((req.body || {}).awb || "").trim();
+  const awbTag = trackonAwbTag(awb);
   const trackType = String((req.body || {}).type || "AWB").toUpperCase() === "ORDER" ? "ORDER" : "AWB";
   if (!awb) return res.status(400).json({ error: "Enter an AWB to test." });
   try {
     const result = await callTrackonPublicPage(awb, trackType);
     const saved = saveLiveResult(result);
+    trackonTiming("HTTP /api/public-trackon total", routeStarted, `${awbTag} | result=success`);
     res.json(saved || result);
   } catch (err) {
+    trackonTiming("HTTP /api/public-trackon failed", routeStarted, `${awbTag} | code=${err.code || "ERROR"}`);
     res.status(502).json({ error: err.code || "TRACKON_PUBLIC_ERROR", message: err.message, courier: "TRACKON" });
   }
 });
