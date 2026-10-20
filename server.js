@@ -101,37 +101,95 @@ function firstValue(obj, paths) {
 }
 
 function normaliseTrackonResponse(raw, awb) {
+  // Trackon's official Customer Tracking API returns:
+  // { summaryTrack: {...}, lstDetails: [...], ResponseStatus: {...} }
+  // Keep compatibility with older/alternate response shapes too.
   const data = typeof raw === "object" && raw !== null ? raw : {};
-  const candidates = [];
-  const push = x => { if (x && typeof x === "object") candidates.push(x); };
-  push(data); push(data.data); push(data.result); push(data.response); push(data.tracking);
-  push(data.shipment); push(data.data && data.data.tracking); push(data.data && data.data.shipment);
+  const summary = data.summaryTrack || data.SummaryTrack ||
+                  (data.data && (data.data.summaryTrack || data.data.SummaryTrack)) || {};
+  const responseStatus = data.ResponseStatus || data.responseStatus || {};
+  const apiMessage = String(firstValue(responseStatus, ["Message", "message"]) || "");
 
-  const root = candidates.find(x => firstValue(x, ["status","Status","currentStatus","current_status","trackingStatus","tracking_status","tag","Event"])) || candidates[0] || data;
-  const status = String(firstValue(root, ["status","Status","currentStatus","current_status","trackingStatus","tracking_status","tag","statusName","status_name","Event","event"]) || firstValue(data, ["status","Status","tag","Event"]) || "TRACKING AVAILABLE");
-  const location = String(firstValue(root, ["location","Location","currentLocation","current_location","city","place","lastLocation","last_location"]) || "");
-  const destination = String(firstValue(root, ["destination","Destination","destinationCity","destination_city","to","consigneeCity","consignee_city","To"]) || "");
-  const dueDate = String(firstValue(root, ["dueDate","due_date","deliveryDueDate","delivery_due_date","DeliveryDueDate","DueDate"]) || firstValue(data, ["dueDate","due_date","DeliveryDueDate","DueDate"]) || "");
-  const bookingDate = String(firstValue(root, ["bookingDate","booking_date","BookingDate","BookedDate"]) || firstValue(data, ["bookingDate","booking_date","BookingDate"]) || "");
-  const transactionNo = String(firstValue(root, ["transactionNo","transaction_no","TransactionNo","transactionNumber","TransactionNumber","Transaction Number"]) || "");
-  const podUrl = String(firstValue(root, ["podUrl","pod_url","PODUrl","pod","POD","podLink","pod_link"]) || "");
-  const updated = firstValue(root, ["lastUpdated","last_updated","updatedAt","updated_at","timestamp","eventTime","event_time","date","datetime","EntryDate&Time"]) || firstValue(data, ["lastUpdated","last_updated","updatedAt","updated_at"]);
+  if (apiMessage && !/^success$/i.test(apiMessage)) {
+    const apiErrors = firstValue(responseStatus, ["Errors", "errors"]);
+    const err = new Error(`Trackon API response: ${apiMessage}${apiErrors ? " — " + String(apiErrors) : ""}`);
+    err.code = "TRACKON_API_RESPONSE_ERROR";
+    throw err;
+  }
 
-  const eventArrays = [root.events, root.Events, root.history, root.History, root.trackingHistory, root.tracking_history, root.checkpoints, root.checkpoint, root.trackingDetails, root.tracking_details, data.events, data.history, data.trackingDetails];
-  let events = [];
-  for (const arr of eventArrays) { if (Array.isArray(arr)) { events = arr; break; } }
+  const detailCandidates = [
+    data.lstDetails, data.LstDetails, data.LSTDETAILS,
+    data.data && data.data.lstDetails,
+    data.data && data.data.LstDetails,
+    summary.lstDetails, summary.LstDetails
+  ];
+  let details = detailCandidates.find(Array.isArray) || [];
 
-  const normalEvents = events.map((e) => ({
-    status: String(firstValue(e, ["status","Status","activity","Activity","tag","event","Event","description","Description"]) || status),
-    location: String(firstValue(e, ["location","Location","place","Place","city","City"]) || ""),
-    event_time: String(firstValue(e, ["eventTime","event_time","timestamp","dateTime","datetime","date","Date","EventDate","EntryDate&Time"]) || ""),
-    transaction_no: String(firstValue(e, ["transactionNo","transaction_no","TransactionNo","transactionNumber","TransactionNumber","Transaction Number"]) || transactionNo),
-    description: String(firstValue(e, ["description","Description","message","Message","remark","remarks","activity","Activity","event","Event"]) || "")
-  })).filter(e => e.status || e.location || e.event_time || e.description || e.transaction_no);
+  const get = (obj, paths) => firstValue(obj || {}, paths);
+  const summaryStatus = String(get(summary, [
+    "CURRENT_STATUS", "Current_Status", "current_status",
+    "CURRENTSTATUS", "status", "Status", "currentStatus"
+  ]) || get(data, ["CURRENT_STATUS", "current_status", "status", "Status"]) || "TRACKING AVAILABLE");
 
-  if (!normalEvents.length) normalEvents.push({ status, location, event_time: updated || now(), transaction_no: transactionNo, description: "Live response received from Trackon API." });
+  const summaryLocation = String(get(summary, [
+    "CURRENT_CITY", "current_city", "CURRENT_CITY_NAME", "location", "Location"
+  ]) || "");
+  const destination = String(get(summary, ["DESTINATION", "destination", "Destination"]) || "");
+  const dueDate = String(get(summary, ["DUE_DATE", "DueDate", "dueDate", "deliveryDueDate"]) || "");
+  const bookingDate = String(get(summary, ["BOOKING_DATE", "BookingDate", "booking_date"]) || "");
+  const transactionNo = String(get(summary, ["TRANSACTION_NO", "TransactionNo", "transaction_no"]) || "");
+  const podUrl = String(get(summary, ["POD_URL", "PODUrl", "podUrl", "podLink"]) || "");
+  const summaryDate = get(summary, ["EVENTDATE", "EventDate", "eventDate", "lastUpdated"]);
+  const summaryTime = get(summary, ["EVENTTIME", "EventTime", "eventTime"]);
+  const summaryUpdated = [summaryDate, summaryTime].filter(Boolean).join(" ");
 
-  return { awb, courier: "TRACKON", status, location, destination, due_date: dueDate, booking_date: bookingDate, transaction_no: transactionNo, pod_url: podUrl, last_updated: updated || now(), events: normalEvents, raw: data };
+  const normalEvents = details.map((e) => {
+    const status = String(get(e, [
+      "CURRENT_STATUS", "current_status", "CURRENTSTATUS",
+      "status", "Status", "Event", "event", "description", "Description"
+    ]) || summaryStatus);
+    const location = String(get(e, [
+      "CURRENT_CITY", "current_city", "CURRENT_CITY_NAME", "location", "Location", "city", "City"
+    ]) || "");
+    const eventDate = get(e, ["EVENTDATE", "EventDate", "eventDate", "event_time", "eventTime", "Date"]);
+    const eventTime = get(e, ["EVENTTIME", "EventTime", "eventTime"]);
+    const eventStamp = [eventDate, eventTime].filter(Boolean).join(" ");
+    const code = String(get(e, ["TRACKING_CODE", "TrackingCode", "tracking_code"]) || "");
+    return {
+      status,
+      location,
+      event_time: eventStamp || String(get(e, ["event_time", "timestamp", "dateTime", "datetime", "Date"]) || ""),
+      transaction_no: String(get(e, ["TRANSACTION_NO", "TransactionNo", "transaction_no"]) || ""),
+      description: [status, code ? `Tracking Code: ${code}` : ""].filter(Boolean).join(" • ")
+    };
+  }).filter(e => e.status || e.location || e.event_time || e.description);
+
+  // Some API responses may have a useful summary but an empty detail array.
+  if (!normalEvents.length) {
+    normalEvents.push({
+      status: summaryStatus,
+      location: summaryLocation,
+      event_time: summaryUpdated || now(),
+      transaction_no: transactionNo,
+      description: "Current status received from Trackon Customer Tracking API."
+    });
+  }
+
+  const latest = normalEvents[0] || {};
+  return {
+    awb: String(get(summary, ["AWBNO", "AWBNo", "awb", "awbNo"]) || awb),
+    courier: "TRACKON",
+    status: summaryStatus || latest.status || "TRACKING AVAILABLE",
+    location: summaryLocation || latest.location || "",
+    destination,
+    due_date: dueDate,
+    booking_date: bookingDate,
+    transaction_no: transactionNo || latest.transaction_no || "",
+    pod_url: podUrl,
+    last_updated: summaryUpdated || latest.event_time || now(),
+    events: normalEvents,
+    raw: data
+  };
 }
 
 function chromeExecutable() {
