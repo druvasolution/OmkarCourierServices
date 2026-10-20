@@ -4,6 +4,25 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OMKAR COURIER SERVICES | Multi Courier Tracking</title>
 <link rel="stylesheet" href="style.css">
+
+<style>
+.branch-modal.hidden{display:none!important}
+.branch-modal{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px}
+.branch-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.branch-modal-card{position:relative;width:min(1120px,96vw);max-height:88vh;overflow:auto;background:#fff;border-radius:18px;padding:28px 30px 32px;box-shadow:0 20px 70px rgba(0,0,0,.28);color:#18324d}
+.branch-modal-card h2{margin:0 40px 8px 0;color:#f36d21;font-size:29px}
+.branch-modal-subtitle{margin:0 0 18px;color:#555}
+.branch-modal-close{position:absolute;right:18px;top:12px;border:0;background:transparent;color:#111;font-size:32px;line-height:1;cursor:pointer}
+.branch-details-content{white-space:normal;line-height:1.65}
+.branch-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:16px}
+.branch-detail-field{min-width:0}
+.branch-detail-field label{display:block;color:#7b8794;font-size:14px;margin-bottom:6px}
+.branch-detail-field div{border:1px solid #d4dce5;border-radius:5px;padding:12px 14px;min-height:22px;overflow-wrap:anywhere}
+.branch-location-link{border:0;background:none;color:#064c9b;text-decoration:underline;cursor:pointer;padding:0;font:inherit;text-align:left}
+.branch-location-link:hover{color:#f36d21}
+@media(max-width:700px){.branch-modal-card{padding:22px 16px}.branch-modal-card h2{font-size:24px}.branch-detail-grid{grid-template-columns:1fr}}
+</style>
+
 </head>
 <body>
 <header id="home">
@@ -107,6 +126,17 @@
   </div>
 </section>
 
+
+<div id="branchDetailsModal" class="branch-modal hidden" role="dialog" aria-modal="true" aria-labelledby="branchModalTitle">
+  <div class="branch-modal-backdrop" onclick="closeBranchDetails()"></div>
+  <section class="branch-modal-card">
+    <button type="button" class="branch-modal-close" aria-label="Close branch details" onclick="closeBranchDetails()">×</button>
+    <h2 id="branchModalTitle">Branch Details</h2>
+    <p class="branch-modal-subtitle">Below information is based on Trackon master data</p>
+    <div id="branchDetailsContent" class="branch-details-content"><p>Loading branch details…</p></div>
+  </section>
+</div>
+
 <footer id="contact" class="compact-footer">
   <div class="footer-bottom">© 2026 Omkar Courier Services. All rights reserved. &nbsp; | &nbsp; Multi Courier Tracking Portal &nbsp; | &nbsp; <a href="/admin.html">Admin</a></div>
 </footer>
@@ -172,7 +202,7 @@ function renderResult(d, fallback){
   $('updated').textContent=fmt(d.last_updated);
   const pod=String(d.pod_url||'').trim();
   if(/^https?:\/\//i.test(pod)){ $('podLink').href=pod; $('podBox').classList.remove('hidden'); } else $('podBox').classList.add('hidden');
-  $('events').innerHTML=(d.events||[]).map((e,i)=>`<tr><td>${i+1}</td><td>${fmt(e.event_time)}</td><td>${rawFmt(e.transaction_no||d.transaction_no)}</td><td>${rawFmt(e.location)}</td><td><b>${rawFmt(e.status||'Update')}</b>${e.description?`<div class="event-desc">${rawFmt(e.description)}</div>`:''}</td><td>${fmt(e.event_time)}</td></tr>`).join('')||'<tr><td colspan="6">No tracking history returned.</td></tr>';
+  $('events').innerHTML=(d.events||[]).map((e,i)=>`<tr><td>${i+1}</td><td>${fmt(e.event_time)}</td><td>${rawFmt(e.transaction_no||d.transaction_no)}</td><td>${e.location?`<button type="button" class="branch-location-link" onclick="showBranchDetails('${encodeURIComponent(d.awb||fallback||'')}','${encodeURIComponent(e.location)}')">${rawFmt(e.location)}</button>`:'-'}</td><td><b>${rawFmt(e.status||'Update')}</b>${e.description?`<div class="event-desc">${rawFmt(e.description)}</div>`:''}</td><td>${fmt(e.event_time)}</td></tr>`).join('')||'<tr><td colspan="6">No tracking history returned.</td></tr>';
   if(d.live_error){$('liveNote').textContent='Live '+courierLabel(d.courier||courier())+' tracking could not be reached. Showing the locally saved result. '+d.live_error;$('liveNote').classList.remove('hidden');}else $('liveNote').classList.add('hidden');
   $('result').classList.remove('hidden');
   document.body.classList.add('tracking-active');
@@ -216,6 +246,55 @@ async function trackMultiple(){
   window.__multi=out;$('msg').textContent=`${list.length} shipment(s) checked.`;window.scrollTo({top:0,behavior:'smooth'});
 }
 function showMulti(encoded){const a=decodeURIComponent(encoded);const d=(window.__multi||[]).find(x=>String(x.awb).toUpperCase()===a.toUpperCase());if(d&&!d.error){renderResult(d,a);}else if(d){$('msg').textContent=d.error||'Tracking failed.';}}
+
+function closeBranchDetails(){
+  $('branchDetailsModal').classList.add('hidden');
+  document.removeEventListener('keydown',branchModalEsc);
+}
+function branchModalEsc(e){if(e.key==='Escape')closeBranchDetails();}
+function branchFieldLabel(line){
+  const m=line.match(/^(Address1|Address2|City|State|Pincode|Ops Contact Person|Branch Manager|Phone)\s*:?\s*(.*)$/i);
+  return m?{label:m[1],value:m[2]||''}:null;
+}
+async function showBranchDetails(encodedAwb, encodedLocation){
+  const awb=decodeURIComponent(encodedAwb||'');
+  const location=decodeURIComponent(encodedLocation||'');
+  const modal=$('branchDetailsModal'), content=$('branchDetailsContent');
+  modal.classList.remove('hidden');
+  content.innerHTML='<p>Loading branch details from Trackon…</p>';
+  document.addEventListener('keydown',branchModalEsc);
+  try{
+    const url='/api/trackon/branch-details?awb='+encodeURIComponent(awb)+'&location='+encodeURIComponent(location);
+    const response=await fetch(url);
+    const data=await response.json();
+    if(!response.ok||!data.ok)throw new Error(data.message||'Branch details could not be loaded.');
+    const lines=String(data.detailsText||'').split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
+    const branchName=lines.find(x=>!/^(Branch Details|Below information is based on Trackon master data)$/i.test(x) && !branchFieldLabel(x))||location;
+    const fields=[];
+    let lastLabel='';
+    for(const line of lines){
+      const item=branchFieldLabel(line);
+      if(item){fields.push(item);lastLabel=item.label;continue;}
+      // Trackon's dialog often puts each field label and its value on separate lines.
+      if(/^(Address1|Address2|City|State|Pincode|Ops Contact Person|Branch Manager|Phone)$/i.test(line)){lastLabel=line;continue;}
+      if(lastLabel){
+        const prev=fields.findLast?fields.findLast(x=>x.label===lastLabel):[...fields].reverse().find(x=>x.label===lastLabel);
+        if(prev&&!prev.value)prev.value=line;
+        else fields.push({label:lastLabel,value:line});
+        lastLabel='';
+      }
+    }
+    const unique=[];
+    for(const f of fields){if(!unique.some(x=>x.label===f.label&&x.value===f.value))unique.push(f);}
+    if(!unique.length){
+      content.innerHTML='<p>'+esc(data.detailsText||'Trackon did not return branch details.')+'</p>';
+      return;
+    }
+    content.innerHTML='<h3 style="text-align:center;color:#a61d1d;margin:0 0 18px">'+esc(branchName)+'</h3><div class="branch-detail-grid">'+unique.map(f=>'<div class="branch-detail-field"><label>'+esc(f.label)+'</label><div>'+esc(f.value||'-')+'</div></div>').join('')+'</div>';
+  }catch(err){
+    content.innerHTML='<p>'+esc(err.message||'Could not load branch details.')+'</p><p style="color:#687789">Please try again. Branch information is provided by Trackon and is not guessed by this website.</p>';
+  }
+}
 function printTracking(){const old=document.title;document.title='Trackon Tracking - '+($('rAwb').textContent||'Shipment');window.print();setTimeout(()=>document.title=old,500);}
 $('awb').addEventListener('keydown',e=>{if(e.key==='Enter')trackOne();});
 setCourierUI();
