@@ -167,6 +167,8 @@ function setTrackingMode(){const multi=trackingMode()==='MULTIPLE';$('singleTrac
 function courierLabel(c){return ({TRACKON:'Trackon',INDIA_POST:'India Post',DTDC:'DTDC',DHL:'DHL',BLUE_DART:'Blue Dart',DELHIVERY:'Delhivery',MOVIN:'MOVIN',TEJ:'Tej Courier'})[c]||c;}
 function setCourierUI(){
   const c=courier(), ip=c==='INDIA_POST', trackon=c==='TRACKON';
+  // Trackon should default to the Official API whenever Trackon is selected.
+  if(trackon){const apiMode=document.querySelector('input[name="sourceMode"][value="API"]');if(apiMode)apiMode.checked=true;}
   document.querySelectorAll('.courier-logo').forEach(el=>{const on=el.dataset.courier===c;el.classList.toggle('selected',on);el.setAttribute('aria-checked',String(on));});
   $('trackTypeBox').classList.toggle('hidden',ip);
   $('trackonModeBox').classList.toggle('hidden',!trackon);
