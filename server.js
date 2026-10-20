@@ -1201,7 +1201,38 @@ async function callTejPublicPage(consignment) {
   }
 }
 
+// Short in-memory cache and in-flight request sharing for Official API mode.
+ // Repeat lookups of the same AWB return quickly without repeatedly calling Trackon.
+const trackonApiCache = new Map();
+const trackonApiInflight = new Map();
+const TRACKON_API_CACHE_MS = 60000;
+
 async function callTrackon(awb, trackType = "AWB") {
+  const cacheKey = `${String(awb).trim().toUpperCase()}|${trackType}`;
+  const cached = trackonApiCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < TRACKON_API_CACHE_MS) {
+    console.log(`[Trackon API] cache-hit | ${trackonAwbTag(awb)}`);
+    return JSON.parse(JSON.stringify(cached.result));
+  }
+  if (trackonApiInflight.has(cacheKey)) {
+    console.log(`[Trackon API] joining-inflight | ${trackonAwbTag(awb)}`);
+    return JSON.parse(JSON.stringify(await trackonApiInflight.get(cacheKey)));
+  }
+  const requestPromise = callTrackonUncached(awb, trackType)
+    .then(result => {
+      trackonApiCache.set(cacheKey, { at: Date.now(), result });
+      if (trackonApiCache.size > 500) {
+        const oldestKey = trackonApiCache.keys().next().value;
+        if (oldestKey) trackonApiCache.delete(oldestKey);
+      }
+      return result;
+    })
+    .finally(() => trackonApiInflight.delete(cacheKey));
+  trackonApiInflight.set(cacheKey, requestPromise);
+  return JSON.parse(JSON.stringify(await requestPromise));
+}
+
+async function callTrackonUncached(awb, trackType = "AWB") {
   const s = getSetting();
   if (!s || !s.enabled) {
     const err = new Error("Trackon API is not enabled. Open Admin → Trackon API Settings.");
@@ -1310,9 +1341,16 @@ function saveLiveResult(result) {
     shipmentId = x.lastInsertRowid;
   }
 
+  const findEvent = db.prepare("SELECT 1 FROM tracking_events WHERE shipment_id=? AND status=? AND location=? AND event_time=? AND description=? LIMIT 1");
   const insertEvent = db.prepare("INSERT INTO tracking_events(shipment_id,status,location,event_time,description) VALUES(?,?,?,?,?)");
   const tx = db.transaction(events => {
-    for (const e of (events || [])) insertEvent.run(shipmentId, e.status, e.location, e.event_time || stamp, [e.transaction_no ? `Transaction No: ${e.transaction_no}` : "", e.description || ""].filter(Boolean).join(" • "));
+    for (const e of (events || [])) {
+      const eventTime = e.event_time || stamp;
+      const description = [e.transaction_no ? `Transaction No: ${e.transaction_no}` : "", e.description || ""].filter(Boolean).join(" • ");
+      if (!findEvent.get(shipmentId, e.status || "", e.location || "", eventTime, description)) {
+        insertEvent.run(shipmentId, e.status || "", e.location || "", eventTime, description);
+      }
+    }
   });
   tx(result.events || []);
   return getShipment(result.awb);
@@ -1421,6 +1459,7 @@ app.post("/api/admin/settings", (req, res) => {
 
   db.prepare(`UPDATE settings SET enabled=?,api_url=?,user_id=?,password=?,app_key=?,auth_mode=? WHERE courier='TRACKON'`)
     .run(enabled ? 1 : 0, String(api_url).trim(), String(user_id).trim(), newPassword, newAppKey, String(auth_mode).toUpperCase());
+  trackonApiCache.clear();
   res.json({ ok: true });
 });
 
