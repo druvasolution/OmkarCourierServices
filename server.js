@@ -1440,6 +1440,64 @@ app.get("/api/admin/health", (req, res) => {
   });
 });
 
+
+// Branch details are available from Trackon's own public tracking page when a
+// user clicks a branch/location. We open the same AWB on the official public
+// page and read the visible Branch Details dialog; no details are fabricated.
+app.get("/api/trackon/branch-details", async (req, res) => {
+  const awb = String(req.query.awb || "").trim();
+  const location = String(req.query.location || "").trim();
+  if (!awb || !location) {
+    return res.status(400).json({ ok: false, message: "AWB and location are required." });
+  }
+  if (!chromium) {
+    return res.status(503).json({ ok: false, message: "Branch details require the Trackon public-page browser service." });
+  }
+  try {
+    // Re-run the normal public tracking flow so the browser page is on this AWB.
+    trackonPublicCache.delete(`${String(awb).trim().toUpperCase()}|AWB`);
+    await callTrackonPublicPage(awb, "AWB");
+    const executablePath = chromeExecutable();
+    if (!executablePath) throw new Error("Chrome/Chromium is not available on the server.");
+    const browser = await getTrackonBrowser(executablePath);
+    const page = await getTrackonReusablePage(browser);
+
+    // Prefer the exact location text. If Trackon displays only a branch-name
+    // portion as a link, try the distinctive first part before the comma.
+    let target = page.getByText(location, { exact: true }).first();
+    if (!(await target.count().catch(() => 0))) {
+      const branchPart = location.split(",")[0].replace(/^[A-Z0-9_-]+-/, "").trim();
+      target = page.getByText(branchPart, { exact: false }).first();
+    }
+    if (!(await target.count().catch(() => 0))) {
+      return res.status(404).json({ ok: false, message: "This location is not clickable on Trackon's public tracking page." });
+    }
+    await target.click({ timeout: 5000 });
+    await page.getByText(/Branch Details/i).first().waitFor({ state: "visible", timeout: 7000 });
+    await page.waitForTimeout(250);
+    const dialog = page.locator('[role="dialog"]:visible, .modal:visible, .modal.show:visible').first();
+    let detailsText = "";
+    if (await dialog.count().catch(() => 0)) {
+      detailsText = await dialog.innerText().catch(() => "");
+    }
+    if (!detailsText || !/Branch Details/i.test(detailsText)) {
+      const body = await page.locator("body").innerText().catch(() => "");
+      const at = body.search(/Branch Details/i);
+      detailsText = at >= 0 ? body.slice(at, at + 3000) : "";
+    }
+    if (!detailsText) {
+      return res.status(404).json({ ok: false, message: "Trackon did not return branch details for this location." });
+    }
+    res.json({ ok: true, location, detailsText });
+  } catch (err) {
+    console.error("[Trackon branch details]", String(err.message || err).slice(0, 200));
+    res.status(502).json({
+      ok: false,
+      message: "Could not load branch details from Trackon right now. Please try again."
+    });
+  }
+});
+
 app.use((req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 app.listen(PORT, () => console.log(`OMKAR COURIER SERVICES: http://localhost:${PORT}`));
