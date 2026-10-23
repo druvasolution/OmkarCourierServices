@@ -1060,7 +1060,16 @@ async function callMovinPublicPage(reference) {
   }
 }
 
+const tejTrackingCache = new Map();
+const TEJ_TRACKING_CACHE_MS = 15000;
+
 async function callTejPublicPage(consignment) {
+  const tejCacheKey = String(consignment || "").trim().toUpperCase();
+  const cachedTej = tejTrackingCache.get(tejCacheKey);
+  if (cachedTej && Date.now() - cachedTej.at < TEJ_TRACKING_CACHE_MS) {
+    console.log(`[TEJ timing] cache-hit | awbSuffix=${tejCacheKey.slice(-4)}`);
+    return JSON.parse(JSON.stringify(cachedTej.result));
+  }
   if (!chromium) {
     const e = new Error("Tej Courier website tracking needs Playwright Core. Run npm install first.");
     e.code = "PLAYWRIGHT_MISSING";
@@ -1083,12 +1092,24 @@ async function callTejPublicPage(consignment) {
     });
     const pages = [page];
     browser.on("page", p => { if (!pages.includes(p)) pages.push(p); });
-    await page.goto("https://www.tejcouriers.com/shipment-tracking.php", { waitUntil: "domcontentloaded", timeout: 45000 });
-    await page.waitForTimeout(1000);
+    // TEJ-only speed-up: skip non-essential media and don't wait for the full
+    // document load. Trackon uses a different browser flow and is not changed.
+    await page.route("**/*", route => {
+      const type = route.request().resourceType();
+      if (["image", "font", "media"].includes(type)) return route.abort();
+      return route.continue();
+    });
+    const tejStartedAt = Date.now();
+    await page.goto("https://www.tejcouriers.com/shipment-tracking.php", { waitUntil: "commit", timeout: 20000 });
 
-    let input = page.locator('input[placeholder*="Consignment" i]:visible').first();
-    if (!(await input.count().catch(() => 0))) input = page.locator('input[type="text"]:visible').first();
-    if (!(await input.count().catch(() => 0))) {
+    let input = null;
+    const inputDeadline = Date.now() + 6000;
+    while (Date.now() < inputDeadline && !input) {
+      input = page.locator('input[placeholder*="Consignment" i]:visible').first();
+      if (!(await input.count().catch(() => 0))) input = page.locator('input[type="text"]:visible').first();
+      if (!(await input.count().catch(() => 0))) { input = null; await page.waitForTimeout(200); }
+    }
+    if (!input) {
       throw Object.assign(new Error("Tej Courier tracking input was not found on its official page."), { code: "TEJ_FORM_NOT_FOUND" });
     }
     await input.fill(String(consignment));
@@ -1100,19 +1121,26 @@ async function callTejPublicPage(consignment) {
       if (await form.count().catch(() => 0)) await form.evaluate(el => el.requestSubmit()).catch(async () => { await input.press("Enter").catch(() => {}); });
       else await input.press("Enter").catch(() => {});
     }
-    await page.waitForTimeout(2200);
-
+    // Poll for the result instead of sleeping a fixed 2.2 seconds. This can
+    // return sooner on fast responses while still allowing the TEJ page to load.
     let resultPage = page;
     let bodyText = "";
     let rows = [];
-    for (const p of [...pages].reverse()) {
-      const text = await p.locator("body").innerText().catch(() => "");
-      const tableRows = await p.locator("table tr").evaluateAll(els => els.map(tr => Array.from(tr.querySelectorAll("th,td")).map(td => (td.innerText || "").trim()).filter(Boolean)).filter(r => r.length >= 2)).catch(() => []);
-      if (tableRows.length || /shipment details|consignment|tracking details/i.test(text)) {
-        resultPage = p; bodyText = text; rows = tableRows;
-        if (tableRows.length) break;
+    const resultDeadline = Date.now() + 12000;
+    while (Date.now() < resultDeadline) {
+      for (const p of [...pages].reverse()) {
+        const text = await p.locator("body").innerText().catch(() => "");
+        const tableRows = await p.locator("table tr").evaluateAll(els => els.map(tr => Array.from(tr.querySelectorAll("th,td")).map(td => (td.innerText || "").trim()).filter(Boolean)).filter(r => r.length >= 2)).catch(() => []);
+        if (tableRows.length || /tracking history|shipment details|tracking details|consignment/i.test(text)) {
+          resultPage = p; bodyText = text; rows = tableRows;
+          if (tableRows.length || /tracking history/i.test(text)) break;
+        }
       }
+      const hasDatedStatus = /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}\b/.test(bodyText) && /booked|booking|in transit|dispatched|delivered|out for delivery|tracking history/i.test(bodyText);
+      if (rows.length || /tracking history/i.test(bodyText) || hasDatedStatus) break;
+      await page.waitForTimeout(250);
     }
+    console.log(`[TEJ timing] page-and-result ${Date.now() - tejStartedAt}ms | awbSuffix=${String(consignment).slice(-4)}`);
 
     const cleanRows = rows.filter(r => !/^(date|status|location)$/i.test(r.join(" ").trim()) && r.some(Boolean));
     let events = cleanRows.map(r => {
@@ -1169,7 +1197,7 @@ async function callTejPublicPage(consignment) {
       : (/out for delivery/i.test(eventText) ? "Out for Delivery"
       : (/in transit|dispatched|reached at hub/i.test(eventText) ? "In Transit"
       : (latest.status || "TRACKING AVAILABLE"))));
-    return {
+    const tejResult = {
       awb: String(consignment), courier: "TEJ", status: consignmentStatus,
       location: latest.location || origin || "", destination, due_date: "",
       booking_date: latest.event_time || "", transaction_no: "", pod_url: "",
@@ -1181,6 +1209,9 @@ async function callTejPublicPage(consignment) {
         articles: readDetail("Articles")
       }
     };
+    tejTrackingCache.set(tejCacheKey, { at: Date.now(), result: tejResult });
+    if (tejTrackingCache.size > 200) tejTrackingCache.delete(tejTrackingCache.keys().next().value);
+    return tejResult;
   } finally {
     await browser.close().catch(() => {});
   }
