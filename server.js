@@ -67,6 +67,126 @@ for (const sql of [
 db.prepare("INSERT OR IGNORE INTO settings(courier) VALUES('TRACKON')").run();
 
 app.use(express.json({ limit: "256kb" }));
+
+// Admin authentication: credentials and session secret must be configured on the VPS,
+// never in this source file or in GitHub.
+app.set("trust proxy", 1);
+const session = require("express-session");
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(48).toString("hex");
+if (!process.env.SESSION_SECRET) {
+  console.warn("WARNING: SESSION_SECRET is not set. Sessions will reset whenever the server restarts.");
+}
+app.use(session({
+  name: "omkar_admin_sid",
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: "auto",
+    maxAge: 8 * 60 * 60 * 1000
+  }
+}));
+
+const adminLoginAttempts = new Map();
+function constantTimeEqual(a, b) {
+  const left = Buffer.from(String(a || ""), "utf8");
+  const right = Buffer.from(String(b || ""), "utf8");
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+function adminConfigured() {
+  return Boolean(process.env.ADMIN_USER && process.env.ADMIN_PASSWORD);
+}
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.isAdmin === true) return next();
+  return res.status(401).json({ error: "ADMIN_LOGIN_REQUIRED" });
+}
+
+app.post("/api/admin/login", (req, res, next) => {
+  if (!adminConfigured()) {
+    return res.status(503).json({ error: "Admin login is not configured on the server." });
+  }
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const nowMs = Date.now();
+  const old = adminLoginAttempts.get(ip);
+  if (old && nowMs - old.startedAt > 15 * 60 * 1000) adminLoginAttempts.delete(ip);
+  const state = adminLoginAttempts.get(ip) || { startedAt: nowMs, count: 0 };
+  if (state.count >= 10) {
+    return res.status(429).json({ error: "Too many login attempts. Wait 15 minutes and try again." });
+  }
+  state.count += 1;
+  adminLoginAttempts.set(ip, state);
+
+  const body = req.body || {};
+  const valid = constantTimeEqual(body.username, process.env.ADMIN_USER) &&
+                constantTimeEqual(body.password, process.env.ADMIN_PASSWORD);
+  if (!valid) return res.status(401).json({ error: "Incorrect Admin User ID or Password." });
+
+  req.session.regenerate((err) => {
+    if (err) return next(err);
+    req.session.isAdmin = true;
+    req.session.adminUser = process.env.ADMIN_USER;
+    req.session.save((saveErr) => {
+      if (saveErr) return next(saveErr);
+      adminLoginAttempts.delete(ip);
+      res.json({ ok: true });
+    });
+  });
+});
+
+app.get("/api/admin/me", (req, res) => {
+  res.json({ authenticated: Boolean(req.session && req.session.isAdmin === true) });
+});
+
+app.post("/api/admin/logout", (req, res, next) => {
+  if (!req.session) return res.json({ ok: true });
+  req.session.destroy((err) => {
+    if (err) return next(err);
+    res.clearCookie("omkar_admin_sid", { httpOnly: true, sameSite: "lax", secure: "auto" });
+    res.json({ ok: true });
+  });
+});
+
+// Serve a login screen without requiring a separate HTML file.
+app.get("/admin-login", (req, res) => {
+  if (req.session && req.session.isAdmin === true) return res.redirect("/admin.html");
+  res.type("html").send(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Login | OMKAR COURIER SERVICES</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef4fb;font:16px Arial,sans-serif;color:#152238}
+.card{width:min(420px,92vw);background:#fff;padding:30px;border-radius:16px;box-shadow:0 12px 40px #122b4a20}
+h1{font-size:24px;margin:0 0 8px;color:#123a68}p{color:#65758b;margin:0 0 24px}
+label{display:block;font-weight:700;margin:14px 0 7px}input{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px}
+button{width:100%;margin-top:20px;padding:13px;border:0;border-radius:8px;background:#1459a6;color:white;font-weight:700;font-size:16px;cursor:pointer}
+#error{color:#b42318;min-height:22px;margin-top:12px;font-size:14px}
+</style></head><body><main class="card"><h1>OMKAR COURIER SERVICES</h1><p>Admin Panel Login</p>
+<form id="login"><label for="username">Admin User ID</label><input id="username" autocomplete="username" required>
+<label for="password">Admin Password</label><input id="password" type="password" autocomplete="current-password" required>
+<button type="submit">Login</button><div id="error" role="alert"></div></form></main>
+<script>
+document.getElementById('login').addEventListener('submit',async function(e){
+ e.preventDefault();const error=document.getElementById('error');error.textContent='Please wait...';
+ try{const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('username').value,password:document.getElementById('password').value})});
+ const d=await r.json();if(!r.ok){error.textContent=d.error||'Login failed';return;}location.href='/admin.html';
+ }catch(_){error.textContent='Server connection failed. Please try again.';}
+});
+</script></body></html>`);
+});
+
+// Require authentication before any other Admin API is reached.
+app.use("/api/admin", (req, res, next) => {
+  if (req.path === "/login" || req.path === "/me" || req.path === "/logout") return next();
+  return requireAdmin(req, res, next);
+});
+
+// Protect the Admin page itself; public tracking pages remain public.
+app.get("/admin.html", (req, res, next) => {
+  if (req.session && req.session.isAdmin === true) return next();
+  return res.redirect("/admin-login");
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 
 const now = () => new Date().toISOString();
